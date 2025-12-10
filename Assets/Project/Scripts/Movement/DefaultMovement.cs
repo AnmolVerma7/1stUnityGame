@@ -365,7 +365,9 @@ namespace Antigravity.Movement
             if (_isSliding)
                 return;
 
-            bool shouldCrouch = _input.IsCrouching; // Use IsCrouching (handles toggle/hold)
+            // Fix: Prevent standard crouch while sprinting (Crouch input is reserved for Slide in this state)
+            // If slide fails (cooldown/speed), we should stay sprinting, not dip into a crouch.
+            bool shouldCrouch = _input.IsCrouching && !_input.IsSprinting;
 
             if (_isCrouching && !shouldCrouch)
             {
