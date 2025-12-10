@@ -52,6 +52,9 @@ namespace Antigravity.Movement
             _maxAirJumps = config.AllowDoubleJump ? 1 : 0;
         }
 
+        /// <summary>
+        /// Resets jump state when module is activated.
+        /// </summary>
         public void OnActivated()
         {
             _jumpRequested = false;
@@ -60,6 +63,9 @@ namespace Antigravity.Movement
             _timeSinceLastAbleToJump = 0f;
         }
 
+        /// <summary>
+        /// Buffers a jump request for the next physics update.
+        /// </summary>
         public void RequestJump()
         {
             _timeSinceJumpRequested = 0f;
@@ -75,6 +81,9 @@ namespace Antigravity.Movement
             }
         }
 
+        /// <summary>
+        /// Main jump logic loop. Evaluates Wall -> Ground -> Air priority.
+        /// </summary>
         public void ProcessJump(ref Vector3 currentVelocity, float deltaTime)
         {
             _jumpedThisFrame = false;

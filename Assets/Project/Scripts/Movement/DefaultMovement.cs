@@ -16,8 +16,7 @@ namespace Antigravity.Movement
 
         private readonly PlayerInputHandler _input;
         private readonly Transform _meshRoot;
-        private readonly JumpHandler _jumpHandler;
-
+        private readonly JumpHandler _jumpHandler; // Composition: Handles all jump logic
         #endregion
 
         #region State
@@ -28,7 +27,7 @@ namespace Antigravity.Movement
 
         // Crouch State
         private bool _isCrouching;
-        private Collider[] _probedColliders = new Collider[8];
+        private Collider[] _probedColliders = new Collider[8]; // Buffer for overlap checks
 
         // Sprint & Dash State
         private float _dashAuthenticationTimer; // "Intermission" timer

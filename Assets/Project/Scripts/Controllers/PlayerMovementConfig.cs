@@ -6,12 +6,23 @@ namespace Antigravity.Controllers
         fileName = "PlayerMovementConfig",
         menuName = "Antigravity/Player Movement Config"
     )]
+    /// <summary>
+    /// Configuration asset for Player Movement physics and abilities.
+    /// <para>Defines speeds, forces, cooldowns, and toggle settings.</para>
+    /// </summary>
     public class PlayerMovementConfig : ScriptableObject
     {
         [Header("Movement")]
+        [Tooltip("Standard movement speed on ground.")]
         public float MaxStableMoveSpeed = 8f;
+
+        [Tooltip("How quickly the player accelerates/decelerates on ground.")]
         public float StableMovementSharpness = 15f;
+
+        [Tooltip("How quickly the character rotates to face input direction.")]
         public float OrientationSharpness = 10f;
+
+        [Tooltip("Max distance from ledge before falling off.")]
         public float MaxStableDistanceFromLedge = 5f;
 
         [Range(0f, 180f)]
@@ -21,10 +32,17 @@ namespace Antigravity.Controllers
         public float MaxSprintMoveSpeed = 15f;
 
         [Header("Dash")]
-        public float DashForce = 15f; // Increased default since it's a dedicated dash now? User liked 10, maybe 15 for "Dash". I'll stick to 10 for now as per "Map red to dash".
-        public float DashIntermissionTime = 0.1f; // Tiny cooldown between rapid dashes
+        [Tooltip("Impulse force applied when dashing.")]
+        public float DashForce = 15f;
+
+        [Tooltip("Minimum time between dashes (prevents input spam).")]
+        public float DashIntermissionTime = 0.1f;
+
+        [Tooltip("Maximum number of dash charges available.")]
         public int MaxDashCharges = 3;
-        public float DashReloadTime = 2.0f; // Time to reload one charge
+
+        [Tooltip("Time (seconds) to regenerate one dash charge.")]
+        public float DashReloadTime = 2.0f;
 
         [Tooltip("If true, pressing Sprint toggles it on/off. If false, hold is required.")]
         public bool ToggleSprint = true;

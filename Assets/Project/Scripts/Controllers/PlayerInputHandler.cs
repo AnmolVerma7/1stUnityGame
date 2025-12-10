@@ -14,13 +14,16 @@ namespace Antigravity.Controllers
         #region Inspector Fields
 
         [Header("Movement Input")]
+        [Tooltip("Current movement vector (WASD/Stick).")]
         [SerializeField]
         private Vector2 _moveInput;
 
         [Header("Look Input")]
+        [Tooltip("Mouse delta input (pixels).")]
         [SerializeField]
         private Vector2 _lookDelta; // Mouse
 
+        [Tooltip("Gamepad stick look rate (-1 to 1).")]
         [SerializeField]
         private Vector2 _lookRate; // Gamepad
 

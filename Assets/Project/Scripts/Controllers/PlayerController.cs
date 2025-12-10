@@ -33,8 +33,13 @@ namespace Antigravity.Controllers
         #region Inspector Fields
 
         [Header("References")]
+        [Tooltip("Core physics motor from KCC.")]
         public KinematicCharacterMotor Motor;
+
+        [Tooltip("Input source (Command Pattern).")]
         public PlayerInputHandler InputHandler;
+
+        [Tooltip("Configuration asset for tuning values.")]
         public PlayerMovementConfig Config;
 
         [Header("State Machine (Debug - Observation Only)")]
@@ -42,7 +47,10 @@ namespace Antigravity.Controllers
         private string _currentStateDebug;
 
         [Header("Misc")]
+        [Tooltip("Colliders to ignore (loops through and calls kcc.SetIgnoreCollider).")]
         public List<Collider> IgnoredColliders = new List<Collider>();
+
+        [Tooltip("Visual mesh root (for scaling/crouching effects).")]
         public Transform MeshRoot;
 
         #endregion
