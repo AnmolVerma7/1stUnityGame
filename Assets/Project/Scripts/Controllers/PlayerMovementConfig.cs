@@ -66,6 +66,9 @@ namespace Antigravity.Controllers
         [Tooltip("Max slide duration in seconds (0 = infinite, speed-based only).")]
         public float MaxSlideDuration = 0f;
 
+        [Tooltip("Minimum time (seconds) to wait before sliding again.")]
+        public float SlideCooldown = 0.5f;
+
         [Header("Air Movement")]
         public float MaxAirMoveSpeed = 10f;
         public float AirAccelerationSpeed = 5f;

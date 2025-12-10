@@ -42,6 +42,7 @@ namespace Antigravity.Movement
         private float _slideTimer; // Track duration
         private Vector3 _slideDirection; // Locked at slide start
         private bool _pendingSlideEntry; // Cached from input before LateUpdate reset
+        private float _lastSlideExitTime = -999f; // Allow immediate slide on start reset
         #endregion
 
         #region Constructor
@@ -463,7 +464,8 @@ namespace Antigravity.Movement
                 isSprinting
                 && currentSpeed > 1f // Lower threshold for entry
                 && isGrounded
-                && notCrouching; // Critical: Prevents Crouch→Sprint from sliding
+                && notCrouching // Critical: Prevents Crouch→Sprint from sliding
+                && (UnityEngine.Time.time >= _lastSlideExitTime + Config.SlideCooldown); // Cooldown check
 
             if (canSlide)
             {
@@ -483,9 +485,14 @@ namespace Antigravity.Movement
         {
             _isSliding = false;
             _slideTimer = 0f;
+            _lastSlideExitTime = UnityEngine.Time.time; // Record exit time for cooldown
 
             // Stay crouched if user still holding crouch button
-            if (!_input.IsCrouching)
+            if (_input.IsCrouching)
+            {
+                // Do nothing, stay crouched
+            }
+            else
             {
                 TryUncrouch();
             }
