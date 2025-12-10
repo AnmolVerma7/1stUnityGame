@@ -21,7 +21,9 @@ Welcome to the **Antigravity Unity Game** documentation! All guides are organize
 **[Movement/MOVEMENT_SYSTEM_GUIDE.md](Movement/MOVEMENT_SYSTEM_GUIDE.md)** - Modular architecture
 
 - Strategy Pattern implementation
+- Handler Pattern (composition)
 - How to add abilities (wallrun, dash, etc.)
+- **New**: Mantle/Parkour System (Ledge Grab) 🧗
 - **New**: Logic-Free Controller Architecture 🧘
 - **New**: Scalable Jump System (Triple Jump, Jump Classification)
 - Design patterns explained
