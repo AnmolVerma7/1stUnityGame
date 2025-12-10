@@ -28,6 +28,7 @@ namespace Antigravity.Feedback
         public float FOVSharpness = 10f;
 
         private float _dashTimer;
+        private PlayerController _controller; // To access charges
 
         private void Start()
         {
@@ -37,6 +38,8 @@ namespace Antigravity.Feedback
                 Motor = GetComponent<KinematicCharacterMotor>();
             if (TargetCamera == null)
                 TargetCamera = Camera.main;
+
+            _controller = GetComponent<PlayerController>();
 
             // Auto-find a renderer if not assigned (MeshRoot or self)
             if (TargetRenderer == null)
@@ -107,7 +110,7 @@ namespace Antigravity.Feedback
             style.normal.textColor = Color.white;
             style.fontStyle = FontStyle.Bold;
 
-            GUILayout.BeginArea(new Rect(20, 20, 300, 100));
+            GUILayout.BeginArea(new Rect(20, 20, 300, 150)); // Height increased for charges
             GUILayout.Label($"Speed: {speed:F1} m/s", style);
             GUILayout.Label($"H-Speed: {horizontalSpeed:F1} m/s", style);
 
@@ -118,6 +121,13 @@ namespace Antigravity.Feedback
                 status = "ON";
 
             GUILayout.Label($"Sprint: {status}", style);
+
+            // Show Charges
+            if (_controller != null)
+            {
+                GUILayout.Label($"Charges: {_controller.CurrentDashCharges:F0}", style);
+            }
+
             GUILayout.EndArea();
         }
     }

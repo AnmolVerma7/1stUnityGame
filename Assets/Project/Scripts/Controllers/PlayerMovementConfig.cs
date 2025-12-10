@@ -22,7 +22,9 @@ namespace Antigravity.Controllers
 
         [Header("Dash")]
         public float DashForce = 15f; // Increased default since it's a dedicated dash now? User liked 10, maybe 15 for "Dash". I'll stick to 10 for now as per "Map red to dash".
-        public float DashCooldown = 1.0f;
+        public float DashIntermissionTime = 0.1f; // Tiny cooldown between rapid dashes
+        public int MaxDashCharges = 3;
+        public float DashReloadTime = 2.0f; // Time to reload one charge
 
         [Tooltip("If true, pressing Sprint toggles it on/off. If false, hold is required.")]
         public bool ToggleSprint = true;

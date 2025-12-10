@@ -31,8 +31,12 @@ namespace Antigravity.Movement
         private Collider[] _probedColliders = new Collider[8];
 
         // Sprint & Dash State
-        private float _dashCooldownTimer;
+        private float _dashAuthenticationTimer; // "Intermission" timer
         private bool _pendingDash;
+
+        // Dash Charges
+        private int _currentDashCharges;
+        private float _dashReloadTimer;
 
         #endregion
 
@@ -49,6 +53,9 @@ namespace Antigravity.Movement
             _input = input;
             _meshRoot = meshRoot;
             _jumpHandler = new JumpHandler(motor, config);
+
+            // Initialize full charges
+            _currentDashCharges = config.MaxDashCharges;
         }
 
         #endregion
@@ -121,11 +128,8 @@ namespace Antigravity.Movement
             // 2. Crouch handling
             HandleCrouch();
 
-            // 3. Dash Timers
-            if (_dashCooldownTimer > 0)
-            {
-                _dashCooldownTimer -= deltaTime;
-            }
+            // 3. Dash Charge Logic
+            HandleDashCharges(deltaTime);
         }
 
         #endregion
@@ -146,6 +150,8 @@ namespace Antigravity.Movement
         {
             _jumpHandler.OnWallHit(wallNormal);
         }
+
+        public int CurrentDashCharges => _currentDashCharges;
 
         #endregion
 
@@ -224,10 +230,48 @@ namespace Antigravity.Movement
 
         private void ApplyDash(ref Vector3 velocityAdd, Vector3 direction)
         {
-            if (_pendingDash && _dashCooldownTimer <= 0 && direction.sqrMagnitude > 0)
+            // Requirement: Pending Request + Off "Intermission" + Has Charges + Moving
+            if (
+                _pendingDash
+                && _dashAuthenticationTimer <= 0
+                && _currentDashCharges > 0
+                && direction.sqrMagnitude > 0
+            )
             {
+                // Apply Force
                 velocityAdd += direction * Config.DashForce;
-                _dashCooldownTimer = Config.DashCooldown;
+
+                // Consume Charge
+                _currentDashCharges--;
+
+                // Set Intermission (prevent spamming 10 dashes in 1 frame)
+                _dashAuthenticationTimer = Config.DashIntermissionTime;
+
+                // If this was the first charge used (we were full), start reload timer immediately?
+                // Or does it always run? Usually reloading starts if not full.
+                // We handle reloading in HandleDashCharges.
+            }
+        }
+
+        private void HandleDashCharges(float deltaTime)
+        {
+            // Tick Intermission
+            if (_dashAuthenticationTimer > 0)
+                _dashAuthenticationTimer -= deltaTime;
+
+            // Reload Logic
+            if (_currentDashCharges < Config.MaxDashCharges)
+            {
+                _dashReloadTimer += deltaTime;
+                if (_dashReloadTimer >= Config.DashReloadTime)
+                {
+                    _currentDashCharges++;
+                    _dashReloadTimer = 0f; // Reset for next charge
+                }
+            }
+            else
+            {
+                _dashReloadTimer = 0f;
             }
         }
 

@@ -210,6 +210,12 @@ namespace Antigravity.Controllers
                 TransitionToState(CharacterState.Default);
         }
 
+        /// <summary>
+        /// Debug/UI: Current Dash Charges from DefaultMovement.
+        /// </summary>
+        public int CurrentDashCharges =>
+            _defaultMovement != null ? _defaultMovement.CurrentDashCharges : 0;
+
         // --- KCC Logic ---
 
         public void TransitionToState(CharacterState newState)
