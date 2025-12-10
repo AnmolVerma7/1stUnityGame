@@ -62,6 +62,7 @@ namespace Antigravity.Controllers
         // Movement System
         private PlayerMovementSystem _movementSystem;
         private DefaultMovement _defaultMovement;
+        private NoClipMovement _noClipMovement;
 
         // Input State (passed to movement modules)
         private Vector3 _moveInputVector;
@@ -73,7 +74,6 @@ namespace Antigravity.Controllers
         private void Awake()
         {
             Motor.CharacterController = this;
-            TransitionToState(CharacterState.Default);
 
             // Auto-find input handler if not assigned
             if (InputHandler == null)
@@ -81,13 +81,19 @@ namespace Antigravity.Controllers
 
             // Initialize Movement System
             _movementSystem = new PlayerMovementSystem();
+
             _defaultMovement = new DefaultMovement(Motor, Config, InputHandler, MeshRoot);
+            _noClipMovement = new NoClipMovement(Motor, Config, InputHandler);
+
             _movementSystem.RegisterModule(_defaultMovement, isDefault: true);
+            _movementSystem.RegisterModule(_noClipMovement);
 
             // Initialize State Machine (observation only)
             _stateMachine = new PlayerStateMachine();
             _stateFactory = new PlayerStateFactory(_stateMachine, this);
             _stateMachine.Initialize(_stateFactory.Grounded());
+
+            TransitionToState(CharacterState.Default);
         }
 
         private void Update()
@@ -126,12 +132,15 @@ namespace Antigravity.Controllers
             );
             _moveInputVector = cameraPlanarRotation * new Vector3(moveInput.x, 0, moveInput.y);
 
-            // Pass input to movement module
+            // Pass input to ALL modules (since we don't know which is active easily without casting)
+            // Or better: pass to both. They are cheap to set.
             _defaultMovement.SetMoveInput(_moveInputVector);
+            _noClipMovement.SetMoveInput(_moveInputVector);
 
             // Handle Jump Request
             if (InputHandler.JumpDown)
             {
+                // Only default movement cares about jump triggers usually
                 _defaultMovement.RequestJump();
             }
 
@@ -209,26 +218,21 @@ namespace Antigravity.Controllers
 
         public void OnStateEnter(CharacterState state, CharacterState fromState)
         {
+            // Activate corresponding Movement Module
             switch (state)
             {
+                case CharacterState.Default:
+                    _movementSystem.ActivateDefaultModule();
+                    break;
                 case CharacterState.NoClip:
-                    Motor.SetCapsuleCollisionsActivation(false);
-                    Motor.SetMovementCollisionsSolvingActivation(false);
-                    Motor.SetGroundSolvingActivation(false);
+                    _movementSystem.ActivateModule<NoClipMovement>();
                     break;
             }
         }
 
         public void OnStateExit(CharacterState state, CharacterState toState)
         {
-            switch (state)
-            {
-                case CharacterState.NoClip:
-                    Motor.SetCapsuleCollisionsActivation(true);
-                    Motor.SetMovementCollisionsSolvingActivation(true);
-                    Motor.SetGroundSolvingActivation(true);
-                    break;
-            }
+            // Nothing needed here - activating a new module automatically deactivates the old one
         }
 
         public void UpdateRotation(ref Quaternion currentRotation, float deltaTime)
@@ -263,29 +267,8 @@ namespace Antigravity.Controllers
             if (TimeManager.Instance.IsRewinding)
                 return;
 
-            switch (CurrentCharacterState)
-            {
-                case CharacterState.Default:
-                    // Delegate to Movement System
-                    _movementSystem.UpdatePhysics(ref currentVelocity, deltaTime);
-                    break;
-
-                case CharacterState.NoClip:
-                {
-                    // Simple Noclip movement (not delegated)
-                    float verticalInput =
-                        (InputHandler.JumpHeld ? 1f : 0f) + (InputHandler.CrouchHeld ? -1f : 0f);
-                    Vector3 targetMovementVelocity =
-                        (_moveInputVector + (Motor.CharacterUp * verticalInput)).normalized
-                        * Config.NoClipMoveSpeed;
-                    currentVelocity = Vector3.Lerp(
-                        currentVelocity,
-                        targetMovementVelocity,
-                        1 - Mathf.Exp(-Config.NoClipSharpness * deltaTime)
-                    );
-                    break;
-                }
-            }
+            // PURE DELEGATION! 🎉
+            _movementSystem.UpdatePhysics(ref currentVelocity, deltaTime);
         }
 
         public void AfterCharacterUpdate(float deltaTime)
@@ -293,13 +276,8 @@ namespace Antigravity.Controllers
             if (TimeManager.Instance.IsRewinding)
                 return;
 
-            switch (CurrentCharacterState)
-            {
-                case CharacterState.Default:
-                    // Delegate to Movement System
-                    _movementSystem.AfterUpdate(deltaTime);
-                    break;
-            }
+            // PURE DELEGATION! 🎉
+            _movementSystem.AfterUpdate(deltaTime);
         }
 
         #endregion
