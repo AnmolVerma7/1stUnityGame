@@ -17,6 +17,7 @@ namespace Antigravity.Movement
         private readonly PlayerInputHandler _input;
         private readonly Transform _meshRoot;
         private readonly JumpHandler _jumpHandler; // Composition: Handles all jump logic
+        private readonly SlideHandler _slideHandler; // Composition: Handles all slide logic
         #endregion
 
         #region State
@@ -37,12 +38,6 @@ namespace Antigravity.Movement
         private int _currentDashCharges;
         private float _dashReloadTimer;
 
-        // Slide State
-        private bool _isSliding;
-        private float _slideTimer; // Track duration
-        private Vector3 _slideDirection; // Locked at slide start
-        private bool _pendingSlideEntry; // Cached from input before LateUpdate reset
-        private float _lastSlideExitTime = -999f; // Allow immediate slide on start reset
         #endregion
 
         #region Constructor
@@ -58,6 +53,14 @@ namespace Antigravity.Movement
             _input = input;
             _meshRoot = meshRoot;
             _jumpHandler = new JumpHandler(motor, config);
+            _slideHandler = new SlideHandler(
+                motor,
+                config,
+                input,
+                () => _isCrouching,
+                EnterCrouch,
+                TryUncrouch
+            );
 
             // Initialize full charges
             _currentDashCharges = config.MaxDashCharges;
@@ -70,6 +73,7 @@ namespace Antigravity.Movement
         public override void OnActivated()
         {
             _jumpHandler.OnActivated();
+            _slideHandler.OnActivated();
         }
 
         public override void OnDashStarted()
@@ -131,7 +135,7 @@ namespace Antigravity.Movement
             _jumpHandler.PostUpdate(deltaTime);
 
             // 2. Slide entry/exit handling
-            HandleSlide();
+            _slideHandler.HandleSlide();
 
             // 3. Crouch handling
             HandleCrouch();
@@ -161,16 +165,16 @@ namespace Antigravity.Movement
 
         /// <summary>
         /// Called by PlayerController when crouch is activated.
-        /// Requests slide entry (will be processed in HandleSlide).
+        /// Requests slide entry (will be processed in SlideHandler).
         /// </summary>
         public void RequestSlide()
         {
-            _pendingSlideEntry = true;
+            _slideHandler.RequestSlide();
         }
 
         public int CurrentDashCharges => _currentDashCharges;
 
-        public bool IsSliding => _isSliding;
+        public bool IsSliding => _slideHandler.IsSliding;
 
         #endregion
 
@@ -178,11 +182,11 @@ namespace Antigravity.Movement
 
         private void ApplyGroundMovement(ref Vector3 currentVelocity, float deltaTime)
         {
-            // SLIDE CHECK: Override normal movement if sliding
-            if (_isSliding)
+            // If sliding, delegate to SlideHandler
+            if (_slideHandler.IsSliding)
             {
-                ApplySlidePhysics(ref currentVelocity, deltaTime);
-                return; // Skip normal ground movement
+                _slideHandler.ApplySlidePhysics(ref currentVelocity, deltaTime);
+                return;
             }
 
             currentVelocity =
@@ -362,7 +366,7 @@ namespace Antigravity.Movement
         private void HandleCrouch()
         {
             // Don't manage crouch if we're sliding (slide owns the crouch state)
-            if (_isSliding)
+            if (_slideHandler.IsSliding)
                 return;
 
             // Fix: Prevent standard crouch while sprinting (Crouch input is reserved for Slide in this state)
@@ -407,175 +411,6 @@ namespace Antigravity.Movement
             _isCrouching = true;
             Motor.SetCapsuleDimensions(0.5f, 1f, 0.5f);
             _meshRoot.localScale = new Vector3(1f, 0.5f, 1f);
-        }
-
-        #endregion
-
-        #region Slide Helper Methods
-
-        /// <summary>
-        /// Manages slide entry/exit based on input state transitions.
-        /// </summary>
-        private void HandleSlide()
-        {
-            // Capture pending request and reset flag immediately
-            bool requestedSlide = _pendingSlideEntry;
-            _pendingSlideEntry = false;
-
-            // 1. Input-based Entry/Exit Triggers
-            if (requestedSlide)
-            {
-                if (!_isSliding)
-                {
-                    TryEnterSlide();
-                }
-                else if (Config.ToggleSlide)
-                {
-                    // Toggle Mode: Pressing crouch again cancels slide
-                    ExitSlide();
-                    return; // Stop processing to prevent immediate re-entry checks
-                }
-            }
-
-            // 2. Continuous State Checks (if still sliding)
-            if (_isSliding)
-            {
-                // General Exit: Left Ground (Jumping/Falling)
-                if (Motor.GroundingStatus.FoundAnyGround == false)
-                {
-                    ExitSlide();
-                    return;
-                }
-
-                if (Config.ToggleSlide)
-                {
-                    // Toggle Mode Exits:
-                    // - Jump (Handled above)
-                    // - Crouch Press (Handled above)
-                    // - Speed Loss (Handled in UpdatePhysics/ApplyMovement or separate check?
-                    //   Actually speed loss exit is likely handled by logic that checks velocity,
-                    //   but let's rely on the MinSpeed check which presumably happens elsewhere or we add it here?)
-                    //   MinSpeed check handles auto-exit usually.
-                }
-                else
-                {
-                    // Hold Mode Exits:
-                    // - Crouch Release
-                    if (!_input.IsCrouching)
-                    {
-                        ExitSlide();
-                        return;
-                    }
-
-                    // - Sprint Release (Optional for Hold Mode, keeps it responsive)
-                    if (!_input.IsSprinting)
-                    {
-                        ExitSlide();
-                        return;
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// Attempts to enter slide state. Only triggers from Sprint → Crouch when moving.
-        /// </summary>
-        private bool TryEnterSlide()
-        {
-            // Requirements:
-            // 1. Must be sprinting
-            // 2. Must be moving (velocity > low threshold for entry)
-            // 3. Must be grounded
-            // 4. Not already crouching (prevents Crouch→Sprint inadvertent slide)
-
-            float currentSpeed = Motor.Velocity.magnitude;
-            bool isSprinting = _input.IsSprinting;
-            bool isGrounded = Motor.GroundingStatus.IsStableOnGround;
-            bool notCrouching = !_isCrouching;
-
-            // Use a LOW threshold for entry (1 m/s = barely moving)
-            // We'll use the higher MinSlideSpeedToMaintain for EXIT
-            bool canSlide =
-                isSprinting
-                && currentSpeed > 1f // Lower threshold for entry
-                && isGrounded
-                && notCrouching // Critical: Prevents Crouch→Sprint from sliding
-                && (UnityEngine.Time.time >= _lastSlideExitTime + Config.SlideCooldown); // Cooldown check
-
-            if (canSlide)
-            {
-                _isSliding = true;
-                _slideDirection = Motor.Velocity.normalized; // Lock direction at slide start
-                _slideTimer = 0f;
-                EnterCrouch(); // Set crouch capsule dimensions
-                return true;
-            }
-            return false;
-        }
-
-        /// <summary>
-        /// Exits slide state. Stays crouched if user still holding crouch.
-        /// </summary>
-        private void ExitSlide()
-        {
-            _isSliding = false;
-            _slideTimer = 0f;
-            _lastSlideExitTime = UnityEngine.Time.time; // Record exit time for cooldown
-
-            // Stay crouched if user still holding crouch button
-            if (_input.IsCrouching)
-            {
-                // Do nothing, stay crouched
-            }
-            else
-            {
-                TryUncrouch();
-            }
-        }
-
-        /// <summary>
-        /// Applies surface-aware slide physics (slope modifies speed).
-        /// </summary>
-        private void ApplySlidePhysics(ref Vector3 currentVelocity, float deltaTime)
-        {
-            // 1. Get slope info
-            Vector3 groundNormal = Motor.GroundingStatus.GroundNormal;
-            float slopeAngle = Vector3.Angle(Motor.CharacterUp, groundNormal);
-
-            // 2. Calculate slide direction (project along slope)
-            Vector3 slopeDirection = Vector3
-                .ProjectOnPlane(_slideDirection, groundNormal)
-                .normalized;
-
-            // 3. Calculate speed modifier based on slope
-            float slopeInfluence =
-                Mathf.Sign(Vector3.Dot(slopeDirection, -Motor.CharacterUp)) * slopeAngle; // +angle downhill, -angle uphill
-            float speedModifier =
-                Config.BaseSlideSpeed + (Config.SlideGravityInfluence * slopeInfluence / 90f); // Normalize to 90° scale
-
-            // 4. Target velocity
-            Vector3 targetVelocity = slopeDirection * speedModifier;
-
-            // 5. Apply friction (gradual deceleration/acceleration)
-            currentVelocity = Vector3.Lerp(
-                currentVelocity,
-                targetVelocity,
-                Config.SlideFriction * deltaTime
-            );
-
-            // 6. Auto-exit if too slow
-            if (currentVelocity.magnitude < Config.MinSlideSpeedToMaintain)
-            {
-                ExitSlide();
-                return;
-            }
-
-            // 7. Max duration check (if set)
-            _slideTimer += deltaTime;
-            if (Config.MaxSlideDuration > 0 && _slideTimer >= Config.MaxSlideDuration)
-            {
-                ExitSlide();
-            }
         }
 
         #endregion

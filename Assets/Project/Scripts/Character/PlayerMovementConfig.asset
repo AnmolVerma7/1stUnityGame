@@ -18,17 +18,20 @@ MonoBehaviour:
   MaxStableDistanceFromLedge: 5
   MaxStableDenivelationAngle: 180
   MaxSprintMoveSpeed: 15
+  ToggleSprint: 1
+  ToggleCrouch: 0
+  ToggleSlide: 1
+  SlideHoldDelay: 0.2
+  SlideCooldown: 0.5
+  BaseSlideSpeed: 16
+  SlideGravityInfluence: 5
+  SlideFriction: 0.3
+  MinSlideSpeedToMaintain: 2
+  MaxSlideDuration: 3
   DashForce: 15
   DashIntermissionTime: 0.1
   MaxDashCharges: 3
   DashReloadTime: 1
-  ToggleSprint: 0
-  ToggleCrouch: 0
-  BaseSlideSpeed: 17
-  SlideGravityInfluence: 5
-  SlideFriction: 0.8
-  MinSlideSpeedToMaintain: 2
-  MaxSlideDuration: 3
   MaxAirMoveSpeed: 10
   AirAccelerationSpeed: 5
   Drag: 0
@@ -41,4 +44,4 @@ MonoBehaviour:
   NoClipMoveSpeed: 10
   NoClipSharpness: 15
   OrientTowardsGravity: 0
-  Gravity: {x: 0, y: -30, z: 0}
+  Gravity: {x: 0, y: -25, z: 0}
