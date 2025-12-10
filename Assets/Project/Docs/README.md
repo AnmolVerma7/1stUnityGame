@@ -22,6 +22,7 @@ Welcome to the **Antigravity Unity Game** documentation! All guides are organize
 
 - Strategy Pattern implementation
 - How to add abilities (wallrun, dash, etc.)
+- **New**: Logic-Free Controller Architecture 🧘
 - **New**: Scalable Jump System (Triple Jump, Jump Classification)
 - Design patterns explained
 
