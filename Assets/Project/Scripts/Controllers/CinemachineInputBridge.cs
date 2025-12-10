@@ -151,10 +151,20 @@ namespace Antigravity.Controllers
             // Gamepad: Sensitivity * Rate * DeltaTime * Scale (make it frame-independent)
             float xInput =
                 (deltaInput.x * _lookSensitivity.x)
-                + (rateInput.x * _lookSensitivity.x * _gamepadRateScale * UnityEngine.Time.deltaTime);
+                + (
+                    rateInput.x
+                    * _lookSensitivity.x
+                    * _gamepadRateScale
+                    * UnityEngine.Time.deltaTime
+                );
             float yInput =
                 (deltaInput.y * _lookSensitivity.y)
-                + (rateInput.y * _lookSensitivity.y * _gamepadRateScale * UnityEngine.Time.deltaTime);
+                + (
+                    rateInput.y
+                    * _lookSensitivity.y
+                    * _gamepadRateScale
+                    * UnityEngine.Time.deltaTime
+                );
 
             // Apply Y inversion (when false, invert the input)
             if (!_invertY)

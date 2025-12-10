@@ -27,10 +27,10 @@ namespace Antigravity.Controllers
         public bool AllowDoubleJump = true;
         public bool AllowWallJump = true;
         public float JumpSpeed = 10f;
-        
+
         [Tooltip("Jump Buffer: How long (seconds) a jump input is remembered before landing")]
         public float JumpPreGroundingGraceTime = 0.15f;
-        
+
         [Tooltip("Coyote Time: How long (seconds) after leaving ground you can still jump")]
         public float JumpPostGroundingGraceTime = 0.1f;
 
