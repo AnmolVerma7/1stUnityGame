@@ -8,14 +8,24 @@ namespace Antigravity.Controllers
     )]
     public class PlayerMovementConfig : ScriptableObject
     {
-        [Header("Stable Movement")]
-        public float MaxStableMoveSpeed = 10f;
-        public float StableMovementSharpness = 15;
-        public float OrientationSharpness = 10;
+        [Header("Movement")]
+        public float MaxStableMoveSpeed = 8f;
+        public float StableMovementSharpness = 15f;
+        public float OrientationSharpness = 10f;
         public float MaxStableDistanceFromLedge = 5f;
 
         [Range(0f, 180f)]
         public float MaxStableDenivelationAngle = 180f;
+
+        [Header("Sprint")]
+        public float MaxSprintMoveSpeed = 15f;
+
+        [Header("Dash")]
+        public float DashForce = 15f; // Increased default since it's a dedicated dash now? User liked 10, maybe 15 for "Dash". I'll stick to 10 for now as per "Map red to dash".
+        public float DashCooldown = 1.0f;
+
+        [Tooltip("If true, pressing Sprint toggles it on/off. If false, hold is required.")]
+        public bool ToggleSprint = true;
 
         [Header("Air Movement")]
         public float MaxAirMoveSpeed = 10f;

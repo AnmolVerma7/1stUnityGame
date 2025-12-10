@@ -30,6 +30,10 @@ namespace Antigravity.Movement
         private bool _isCrouching;
         private Collider[] _probedColliders = new Collider[8];
 
+        // Sprint & Dash State
+        private float _dashCooldownTimer;
+        private bool _pendingDash;
+
         #endregion
 
         #region Constructor
@@ -54,6 +58,11 @@ namespace Antigravity.Movement
         public override void OnActivated()
         {
             _jumpHandler.OnActivated();
+        }
+
+        public override void OnDashStarted()
+        {
+            _pendingDash = true;
         }
 
         public override void UpdateRotation(ref Quaternion currentRotation, float deltaTime)
@@ -99,6 +108,9 @@ namespace Antigravity.Movement
 
             // 3. Internal forces
             ApplyInternalVelocity(ref currentVelocity);
+
+            // 4. Reset one-shot events
+            _pendingDash = false;
         }
 
         public override void AfterUpdate(float deltaTime)
@@ -108,6 +120,12 @@ namespace Antigravity.Movement
 
             // 2. Crouch handling
             HandleCrouch();
+
+            // 3. Dash Timers
+            if (_dashCooldownTimer > 0)
+            {
+                _dashCooldownTimer -= deltaTime;
+            }
         }
 
         #endregion
@@ -146,7 +164,14 @@ namespace Antigravity.Movement
                 Vector3.Cross(Motor.GroundingStatus.GroundNormal, inputRight).normalized
                 * _moveInputVector.magnitude;
 
-            Vector3 targetVelocity = reorientedInput * Config.MaxStableMoveSpeed;
+            // Dash Logic (Ground) ⚡️
+            ApplyDash(ref _internalVelocityAdd, reorientedInput.normalized);
+
+            float targetSpeed = _input.IsSprinting
+                ? Config.MaxSprintMoveSpeed
+                : Config.MaxStableMoveSpeed;
+            Vector3 targetVelocity = reorientedInput * targetSpeed;
+
             currentVelocity = Vector3.Lerp(
                 currentVelocity,
                 targetVelocity,
@@ -156,6 +181,12 @@ namespace Antigravity.Movement
 
         private void ApplyAirMovement(ref Vector3 currentVelocity, float deltaTime)
         {
+            // Dash Logic (Air) ✈️⚡️
+            if (_pendingDash)
+            {
+                ApplyDash(ref _internalVelocityAdd, _moveInputVector.normalized);
+            }
+
             if (_moveInputVector.sqrMagnitude > 0f)
             {
                 Vector3 targetVelocity = _moveInputVector * Config.MaxAirMoveSpeed;
@@ -188,6 +219,15 @@ namespace Antigravity.Movement
             {
                 currentVelocity += _internalVelocityAdd;
                 _internalVelocityAdd = Vector3.zero;
+            }
+        }
+
+        private void ApplyDash(ref Vector3 velocityAdd, Vector3 direction)
+        {
+            if (_pendingDash && _dashCooldownTimer <= 0 && direction.sqrMagnitude > 0)
+            {
+                velocityAdd += direction * Config.DashForce;
+                _dashCooldownTimer = Config.DashCooldown;
             }
         }
 

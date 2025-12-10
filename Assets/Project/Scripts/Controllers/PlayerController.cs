@@ -129,6 +129,18 @@ namespace Antigravity.Controllers
             _defaultMovement.SetMoveInput(_moveInputVector);
             _noClipMovement.SetMoveInput(_moveInputVector);
 
+            // Handle Sprint Event (Reliable Trigger)
+            if (InputHandler.SprintJustActivated)
+            {
+                _movementSystem.OnSprintStarted();
+            }
+
+            // Handle Dash
+            if (InputHandler.DashJustActivated)
+            {
+                _movementSystem.OnDashStarted();
+            }
+
             // Handle Jump Request
             if (InputHandler.JumpDown)
             {

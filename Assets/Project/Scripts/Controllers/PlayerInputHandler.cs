@@ -37,6 +37,17 @@ namespace Antigravity.Controllers
         [SerializeField]
         private bool _rewindPressed;
 
+        [Header("Sprint Settings")]
+        private PlayerMovementConfig _config;
+
+        [Tooltip("Debug: Is Sprint Toggled On?")]
+        [SerializeField]
+        private bool _sprintToggledOn;
+
+        [Tooltip("Debug view of sprint hold state")]
+        [SerializeField]
+        private bool _sprintHeld;
+
         #endregion
 
         #region Private Fields (Not Shown in Inspector)
@@ -44,6 +55,7 @@ namespace Antigravity.Controllers
         // One-frame triggers - reset each frame, not useful to display
         private bool _jumpTriggered;
         private bool _noclipTriggered;
+        private bool _dashTriggered;
 
         #endregion
 
@@ -73,6 +85,16 @@ namespace Antigravity.Controllers
         /// <summary>True for ONE frame when noclip is toggled.</summary>
         public bool NoclipToggleDown => _noclipTriggered;
 
+        /// <summary>True if sprint is currently active (handles both Toggle and Hold modes).</summary>
+        public bool IsSprinting =>
+            (_config != null && _config.ToggleSprint) ? _sprintToggledOn : _sprintHeld;
+
+        /// <summary>True for ONE frame when sprint became active.</summary>
+        public bool SprintJustActivated { get; private set; }
+
+        /// <summary>True for ONE frame when dash is pressed.</summary>
+        public bool DashJustActivated => _dashTriggered;
+
         #endregion
 
         /// <inheritdoc />
@@ -82,7 +104,6 @@ namespace Antigravity.Controllers
             builder.Bind(builder.Actions.Move).To<Vector2>(v => _moveInput = v);
 
             // Look (Advanced: Handle Mouse vs Gamepad)
-            // We bypass the builder slightly to use the specialized LookInputCommand
             var router = GetComponent<InputRouter>();
             if (router != null)
             {
@@ -120,6 +141,16 @@ namespace Antigravity.Controllers
                 .Press(() => _rewindPressed = true)
                 .Release(() => _rewindPressed = false)
                 .Register();
+
+            // Sprint
+            builder
+                .Bind(builder.Actions.Sprint)
+                .Press(OnSprintPress)
+                .Release(OnSprintRelease)
+                .Register();
+
+            // Dash (Instant Impulse)
+            builder.Bind(builder.Actions.Dash).Press(() => _dashTriggered = true).Register();
         }
 
         private void Awake()
@@ -131,6 +162,11 @@ namespace Antigravity.Controllers
                 var builder = new InputBuilder(router);
                 RegisterInputs(builder);
             }
+
+            // Try to find config on controller
+            var controller = GetComponent<PlayerController>();
+            if (controller != null)
+                _config = controller.Config;
         }
 
         private void OnEnable()
@@ -142,7 +178,7 @@ namespace Antigravity.Controllers
 
         private void Update()
         {
-            // Dev Inputs (Reverting to Legacy Input as 'Both' is enabled and it's reliable)
+            // Dev Inputs
             if (UnityEngine.Input.GetKeyDown(KeyCode.N))
             {
                 Debug.Log("Noclip Toggle Pressed");
@@ -161,14 +197,61 @@ namespace Antigravity.Controllers
                 Cursor.lockState = CursorLockMode.Locked;
                 Cursor.visible = false;
             }
+
+            // Auto-cancel sprint if idle (only for Toggle mode)
+            bool toggleMode = _config != null ? _config.ToggleSprint : true; // Default true if no config found
+
+            if (toggleMode && _sprintToggledOn && _moveInput.sqrMagnitude < 0.01f)
+            {
+                if (IsGroundedForSprintReset())
+                {
+                    _sprintToggledOn = false;
+                }
+            }
         }
+
+        // Helper check - in a pure Input Handler we might not know grounding, but we can just check input mag.
+        // For now, input magnitude check is robust enough for "Stop Moving".
+        private bool IsGroundedForSprintReset() => true;
 
         private void LateUpdate()
         {
-            // Reset one-frame triggers and accumulators
+            // Reset one-frame triggers
             _jumpTriggered = false;
+            SprintJustActivated = false;
+            _dashTriggered = false;
             _noclipTriggered = false;
-            _lookDelta = Vector2.zero; // Reset accumulated mouse delta
+            _lookDelta = Vector2.zero;
+        }
+
+        private void OnSprintPress()
+        {
+            _sprintHeld = true;
+            bool toggleMode = _config != null ? _config.ToggleSprint : true;
+
+            if (toggleMode)
+            {
+                // Toggle mode: Only toggle if moving (prevents weird idle sprint state)
+                if (_moveInput.sqrMagnitude > 0.01f)
+                {
+                    _sprintToggledOn = !_sprintToggledOn;
+                    if (_sprintToggledOn)
+                        SprintJustActivated = true;
+                }
+            }
+            else
+            {
+                // Hold mode: Activated on press
+                SprintJustActivated = true;
+            }
+        }
+
+        private void OnSprintRelease()
+        {
+            _sprintHeld = false;
+
+            // Toggle mode ignores release
+            // Hold mode uses _sprintHeld prop
         }
     }
 }

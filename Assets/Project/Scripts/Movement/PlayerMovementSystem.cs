@@ -149,6 +149,16 @@ namespace Antigravity.Movement
             _activeModule.UpdateRotation(ref rotation, deltaTime);
         }
 
+        public void OnSprintStarted()
+        {
+            _activeModule?.OnSprintStarted();
+        }
+
+        public void OnDashStarted()
+        {
+            _activeModule?.OnDashStarted();
+        }
+
         /// <summary>
         /// Delegate after-update to the active module.
         /// Called from PlayerController.AfterCharacterUpdate().

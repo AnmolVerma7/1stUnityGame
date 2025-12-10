@@ -49,7 +49,11 @@ namespace Antigravity.Movement
         /// Update rotation for this movement mode.
         /// Must be implemented by derived classes.
         /// </summary>
-        public abstract void UpdateRotation(ref Quaternion rotation, float deltaTime);
+        public abstract void UpdateRotation(ref Quaternion currentRotation, float deltaTime);
+
+        public virtual void OnSprintStarted() { }
+
+        public virtual void OnDashStarted() { }
 
         /// <summary>
         /// Called after character update (cleanup, state management).
