@@ -220,7 +220,36 @@ namespace Antigravity.Movement
 
             if (_moveInputVector.sqrMagnitude > 0f)
             {
+                // KCC Improvement: Better air velocity cap (prevents bunny-hop exploits)
+                // Preserves momentum (like dash) but prevents adding speed beyond MaxAirMoveSpeed
                 Vector3 addedVelocity = _moveInputVector * Config.AirAccelerationSpeed * deltaTime;
+                Vector3 currentVelocityOnInputsPlane = Vector3.ProjectOnPlane(
+                    currentVelocity,
+                    Motor.CharacterUp
+                );
+
+                // Cap air velocity more precisely
+                if (currentVelocityOnInputsPlane.magnitude < Config.MaxAirMoveSpeed)
+                {
+                    // Clamp total velocity to not exceed max
+                    Vector3 newTotal = Vector3.ClampMagnitude(
+                        currentVelocityOnInputsPlane + addedVelocity,
+                        Config.MaxAirMoveSpeed
+                    );
+                    addedVelocity = newTotal - currentVelocityOnInputsPlane;
+                }
+                else
+                {
+                    // Velocity is already high (e.g. from Dash)
+                    // Don't allow acceleration in direction of already-exceeding velocity
+                    if (Vector3.Dot(currentVelocityOnInputsPlane, addedVelocity) > 0f)
+                    {
+                        addedVelocity = Vector3.ProjectOnPlane(
+                            addedVelocity,
+                            currentVelocityOnInputsPlane.normalized
+                        );
+                    }
+                }
 
                 // KCC Improvement: Better air wall prevention
                 if (Motor.GroundingStatus.FoundAnyGround)
@@ -237,27 +266,32 @@ namespace Antigravity.Movement
                     );
                 }
 
-                // Simple horizontal cap (doesn't interfere with vertical/dash impulses)
-                Vector3 horizontalVelocity = Vector3.ProjectOnPlane(
-                    currentVelocity,
-                    Motor.CharacterUp
-                );
-                Vector3 newHorizontalVelocity =
-                    horizontalVelocity + Vector3.ProjectOnPlane(addedVelocity, Motor.CharacterUp);
-
-                // Only limit horizontal speed, not total velocity (preserves dash impulse)
-                if (newHorizontalVelocity.magnitude > Config.MaxAirMoveSpeed)
-                {
-                    newHorizontalVelocity =
-                        newHorizontalVelocity.normalized * Config.MaxAirMoveSpeed;
-                }
-
-                addedVelocity =
-                    newHorizontalVelocity
-                    - horizontalVelocity
-                    + Vector3.Project(addedVelocity, Motor.CharacterUp); // Preserve vertical component
-
                 currentVelocity += addedVelocity;
+            }
+
+            // Consistency Fix: High-speed decay in air
+            // On ground, friction (StableMovementSharpness) slows dash down quickly.
+            // In air, we need similar logic to prevent "infinite" momentum and keep dash distance predictable.
+            Vector3 planarVelocity = Vector3.ProjectOnPlane(currentVelocity, Motor.CharacterUp);
+            float currentPlanarSpeed = planarVelocity.magnitude;
+
+            if (currentPlanarSpeed > Config.MaxAirMoveSpeed)
+            {
+                // Target velocity is the same direction but clamped to max speed
+                Vector3 targetPlanarVelocity = planarVelocity.normalized * Config.MaxAirMoveSpeed;
+
+                // Recombine with vertical velocity
+                Vector3 targetVelocity =
+                    targetPlanarVelocity + Vector3.Project(currentVelocity, Motor.CharacterUp);
+
+                // Decay towards target.
+                // We use a value (e.g. 5f) that is lower than ground sharpness (15f)
+                // to making air dashing slightly "freer" but still controlled.
+                currentVelocity = Vector3.Lerp(
+                    currentVelocity,
+                    targetVelocity,
+                    1 - Mathf.Exp(-5f * deltaTime)
+                );
             }
 
             currentVelocity += Config.Gravity * deltaTime;
