@@ -18,6 +18,7 @@ namespace Antigravity.Movement
         private readonly Transform _meshRoot;
         private readonly JumpHandler _jumpHandler; // Composition: Handles all jump logic
         private readonly SlideHandler _slideHandler; // Composition: Handles all slide logic
+        private readonly DashHandler _dashHandler; // Composition: Handles all dash logic
         #endregion
 
         #region State
@@ -29,15 +30,6 @@ namespace Antigravity.Movement
         // Crouch State
         private bool _isCrouching;
         private Collider[] _probedColliders = new Collider[8]; // Buffer for overlap checks
-
-        // Sprint & Dash State
-        private float _dashAuthenticationTimer; // "Intermission" timer
-        private bool _pendingDash;
-
-        // Dash Charges
-        private int _currentDashCharges;
-        private float _dashReloadTimer;
-
         #endregion
 
         #region Constructor
@@ -61,9 +53,7 @@ namespace Antigravity.Movement
                 EnterCrouch,
                 TryUncrouch
             );
-
-            // Initialize full charges
-            _currentDashCharges = config.MaxDashCharges;
+            _dashHandler = new DashHandler(config);
         }
 
         #endregion
@@ -74,11 +64,12 @@ namespace Antigravity.Movement
         {
             _jumpHandler.OnActivated();
             _slideHandler.OnActivated();
+            _dashHandler.OnActivated();
         }
 
         public override void OnDashStarted()
         {
-            _pendingDash = true;
+            _dashHandler.RequestDash();
         }
 
         public override void UpdateRotation(ref Quaternion currentRotation, float deltaTime)
@@ -124,9 +115,6 @@ namespace Antigravity.Movement
 
             // 3. Internal forces
             ApplyInternalVelocity(ref currentVelocity);
-
-            // 4. Reset one-shot events
-            _pendingDash = false;
         }
 
         public override void AfterUpdate(float deltaTime)
@@ -140,8 +128,8 @@ namespace Antigravity.Movement
             // 3. Crouch handling
             HandleCrouch();
 
-            // 4. Dash Charge Logic
-            HandleDashCharges(deltaTime);
+            // 4. Dash charge logic
+            _dashHandler.UpdateCharges(deltaTime);
         }
 
         #endregion
@@ -172,7 +160,7 @@ namespace Antigravity.Movement
             _slideHandler.RequestSlide();
         }
 
-        public int CurrentDashCharges => _currentDashCharges;
+        public int CurrentDashCharges => _dashHandler.CurrentDashCharges;
 
         public bool IsSliding => _slideHandler.IsSliding;
 
@@ -201,7 +189,7 @@ namespace Antigravity.Movement
                 * _moveInputVector.magnitude;
 
             // Dash Logic (Ground) ⚡️
-            ApplyDash(ref _internalVelocityAdd, reorientedInput.normalized);
+            _dashHandler.TryApplyDash(ref _internalVelocityAdd, reorientedInput.normalized);
 
             float targetSpeed = _input.IsSprinting
                 ? Config.MaxSprintMoveSpeed
@@ -218,10 +206,7 @@ namespace Antigravity.Movement
         private void ApplyAirMovement(ref Vector3 currentVelocity, float deltaTime)
         {
             // Dash Logic (Air) ✈️⚡️
-            if (_pendingDash)
-            {
-                ApplyDash(ref _internalVelocityAdd, _moveInputVector.normalized);
-            }
+            _dashHandler.TryApplyDash(ref _internalVelocityAdd, _moveInputVector.normalized);
 
             if (_moveInputVector.sqrMagnitude > 0f)
             {
@@ -309,53 +294,6 @@ namespace Antigravity.Movement
             {
                 currentVelocity += _internalVelocityAdd;
                 _internalVelocityAdd = Vector3.zero;
-            }
-        }
-
-        private void ApplyDash(ref Vector3 velocityAdd, Vector3 direction)
-        {
-            // Requirement: Pending Request + Off "Intermission" + Has Charges + Moving
-            if (
-                _pendingDash
-                && _dashAuthenticationTimer <= 0
-                && _currentDashCharges > 0
-                && direction.sqrMagnitude > 0
-            )
-            {
-                // Apply Force
-                velocityAdd += direction * Config.DashForce;
-
-                // Consume Charge
-                _currentDashCharges--;
-
-                // Set Intermission (prevent spamming 10 dashes in 1 frame)
-                _dashAuthenticationTimer = Config.DashIntermissionTime;
-
-                // If this was the first charge used (we were full), start reload timer immediately?
-                // Or does it always run? Usually reloading starts if not full.
-                // We handle reloading in HandleDashCharges.
-            }
-        }
-
-        private void HandleDashCharges(float deltaTime)
-        {
-            // Tick Intermission
-            if (_dashAuthenticationTimer > 0)
-                _dashAuthenticationTimer -= deltaTime;
-
-            // Reload Logic
-            if (_currentDashCharges < Config.MaxDashCharges)
-            {
-                _dashReloadTimer += deltaTime;
-                if (_dashReloadTimer >= Config.DashReloadTime)
-                {
-                    _currentDashCharges++;
-                    _dashReloadTimer = 0f; // Reset for next charge
-                }
-            }
-            else
-            {
-                _dashReloadTimer = 0f;
             }
         }
 
