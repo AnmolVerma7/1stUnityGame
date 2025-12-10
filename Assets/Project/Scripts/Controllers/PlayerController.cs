@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Antigravity.Character.States;
+using Antigravity.Movement;
 using Antigravity.Time;
 using KinematicCharacterController;
 using UnityEngine;
@@ -58,19 +59,12 @@ namespace Antigravity.Controllers
         private PlayerStateMachine _stateMachine;
         private PlayerStateFactory _stateFactory;
 
-        // Jump System (KCC Pattern)
-        private Collider[] _probedColliders = new Collider[8];
+        // Movement System
+        private PlayerMovementSystem _movementSystem;
+        private DefaultMovement _defaultMovement;
+
+        // Input State (passed to movement modules)
         private Vector3 _moveInputVector;
-        private bool _jumpRequested = false;
-        private bool _jumpConsumed = false;
-        private bool _doubleJumpConsumed = false;
-        private bool _jumpedThisFrame = false;
-        private bool _canWallJump = false;
-        private Vector3 _wallJumpNormal;
-        private float _timeSinceJumpRequested = Mathf.Infinity;
-        private float _timeSinceLastAbleToJump = 0f;
-        private Vector3 _internalVelocityAdd = Vector3.zero;
-        private bool _isCrouching = false;
 
         #endregion
 
@@ -84,6 +78,11 @@ namespace Antigravity.Controllers
             // Auto-find input handler if not assigned
             if (InputHandler == null)
                 InputHandler = GetComponent<PlayerInputHandler>();
+
+            // Initialize Movement System
+            _movementSystem = new PlayerMovementSystem();
+            _defaultMovement = new DefaultMovement(Motor, Config, InputHandler, MeshRoot);
+            _movementSystem.RegisterModule(_defaultMovement, isDefault: true);
 
             // Initialize State Machine (observation only)
             _stateMachine = new PlayerStateMachine();
@@ -127,11 +126,13 @@ namespace Antigravity.Controllers
             );
             _moveInputVector = cameraPlanarRotation * new Vector3(moveInput.x, 0, moveInput.y);
 
+            // Pass input to movement module
+            _defaultMovement.SetMoveInput(_moveInputVector);
+
             // Handle Jump Request
             if (InputHandler.JumpDown)
             {
-                _timeSinceJumpRequested = 0f;
-                _jumpRequested = true;
+                _defaultMovement.RequestJump();
             }
 
             // Update HSM (observation only)
@@ -265,130 +266,13 @@ namespace Antigravity.Controllers
             switch (CurrentCharacterState)
             {
                 case CharacterState.Default:
-                {
-                    Vector3 targetMovementVelocity = Vector3.zero;
-                    if (Motor.GroundingStatus.IsStableOnGround)
-                    {
-                        currentVelocity =
-                            Motor.GetDirectionTangentToSurface(
-                                currentVelocity,
-                                Motor.GroundingStatus.GroundNormal
-                            ) * currentVelocity.magnitude;
-                        Vector3 inputRight = Vector3.Cross(_moveInputVector, Motor.CharacterUp);
-                        Vector3 reorientedInput =
-                            Vector3.Cross(Motor.GroundingStatus.GroundNormal, inputRight).normalized
-                            * _moveInputVector.magnitude;
-                        targetMovementVelocity = reorientedInput * Config.MaxStableMoveSpeed;
-                        currentVelocity = Vector3.Lerp(
-                            currentVelocity,
-                            targetMovementVelocity,
-                            1 - Mathf.Exp(-Config.StableMovementSharpness * deltaTime)
-                        );
-                    }
-                    else
-                    {
-                        if (_moveInputVector.sqrMagnitude > 0f)
-                        {
-                            targetMovementVelocity = _moveInputVector * Config.MaxAirMoveSpeed;
-                            if (Motor.GroundingStatus.FoundAnyGround)
-                            {
-                                Vector3 perpenticularObstructionNormal = Vector3
-                                    .Cross(
-                                        Vector3.Cross(
-                                            Motor.CharacterUp,
-                                            Motor.GroundingStatus.GroundNormal
-                                        ),
-                                        Motor.CharacterUp
-                                    )
-                                    .normalized;
-                                targetMovementVelocity = Vector3.ProjectOnPlane(
-                                    targetMovementVelocity,
-                                    perpenticularObstructionNormal
-                                );
-                            }
-                            Vector3 velocityDiff = Vector3.ProjectOnPlane(
-                                targetMovementVelocity - currentVelocity,
-                                Config.Gravity
-                            );
-                            currentVelocity +=
-                                velocityDiff * Config.AirAccelerationSpeed * deltaTime;
-                        }
-                        currentVelocity += Config.Gravity * deltaTime;
-                        currentVelocity *= (1f / (1f + (Config.Drag * deltaTime)));
-                    }
-
-                    // Jumping
-                    _jumpedThisFrame = false;
-                    _timeSinceJumpRequested += deltaTime;
-                    if (_jumpRequested)
-                    {
-                        if (Config.AllowDoubleJump)
-                        {
-                            if (
-                                _jumpConsumed
-                                && !_doubleJumpConsumed
-                                && (
-                                    Config.AllowJumpingWhenSliding
-                                        ? !Motor.GroundingStatus.FoundAnyGround
-                                        : !Motor.GroundingStatus.IsStableOnGround
-                                )
-                            )
-                            {
-                                Motor.ForceUnground(0.1f);
-                                currentVelocity +=
-                                    (Motor.CharacterUp * Config.JumpSpeed)
-                                    - Vector3.Project(currentVelocity, Motor.CharacterUp);
-                                _jumpRequested = false;
-                                _doubleJumpConsumed = true;
-                                _jumpedThisFrame = true;
-                            }
-                        }
-
-                        if (
-                            _canWallJump
-                            || (
-                                !_jumpConsumed
-                                && (
-                                    (
-                                        Config.AllowJumpingWhenSliding
-                                            ? Motor.GroundingStatus.FoundAnyGround
-                                            : Motor.GroundingStatus.IsStableOnGround
-                                    )
-                                    || _timeSinceLastAbleToJump <= Config.JumpPostGroundingGraceTime
-                                )
-                            )
-                        )
-                        {
-                            Vector3 jumpDirection = Motor.CharacterUp;
-                            if (_canWallJump)
-                                jumpDirection = _wallJumpNormal;
-                            else if (
-                                Motor.GroundingStatus.FoundAnyGround
-                                && !Motor.GroundingStatus.IsStableOnGround
-                            )
-                                jumpDirection = Motor.GroundingStatus.GroundNormal;
-
-                            Motor.ForceUnground(0.1f);
-                            currentVelocity +=
-                                (jumpDirection * Config.JumpSpeed)
-                                - Vector3.Project(currentVelocity, Motor.CharacterUp);
-                            _jumpRequested = false;
-                            _jumpConsumed = true;
-                            _jumpedThisFrame = true;
-                        }
-                    }
-                    _canWallJump = false;
-
-                    if (_internalVelocityAdd.sqrMagnitude > 0f)
-                    {
-                        currentVelocity += _internalVelocityAdd;
-                        _internalVelocityAdd = Vector3.zero;
-                    }
+                    // Delegate to Movement System
+                    _movementSystem.UpdatePhysics(ref currentVelocity, deltaTime);
                     break;
-                }
+
                 case CharacterState.NoClip:
                 {
-                    // Simple Noclip movement
+                    // Simple Noclip movement (not delegated)
                     float verticalInput =
                         (InputHandler.JumpHeld ? 1f : 0f) + (InputHandler.CrouchHeld ? -1f : 0f);
                     Vector3 targetMovementVelocity =
@@ -412,60 +296,8 @@ namespace Antigravity.Controllers
             switch (CurrentCharacterState)
             {
                 case CharacterState.Default:
-                    if (
-                        _jumpRequested
-                        && _timeSinceJumpRequested > Config.JumpPreGroundingGraceTime
-                    )
-                        _jumpRequested = false;
-
-                    if (
-                        Config.AllowJumpingWhenSliding
-                            ? Motor.GroundingStatus.FoundAnyGround
-                            : Motor.GroundingStatus.IsStableOnGround
-                    )
-                    {
-                        if (!_jumpedThisFrame)
-                        {
-                            _doubleJumpConsumed = false;
-                            _jumpConsumed = false;
-                        }
-                        _timeSinceLastAbleToJump = 0f;
-                    }
-                    else
-                    {
-                        _timeSinceLastAbleToJump += deltaTime;
-                    }
-
-                    // Crouching logic
-                    bool shouldBeCrouching = InputHandler.CrouchHeld;
-
-                    if (_isCrouching && !shouldBeCrouching)
-                    {
-                        Motor.SetCapsuleDimensions(0.5f, 2f, 1f);
-                        if (
-                            Motor.CharacterOverlap(
-                                Motor.TransientPosition,
-                                Motor.TransientRotation,
-                                _probedColliders,
-                                Motor.CollidableLayers,
-                                QueryTriggerInteraction.Ignore
-                            ) > 0
-                        )
-                        {
-                            Motor.SetCapsuleDimensions(0.5f, 1f, 0.5f);
-                        }
-                        else
-                        {
-                            MeshRoot.localScale = new Vector3(1f, 1f, 1f);
-                            _isCrouching = false;
-                        }
-                    }
-                    else if (!_isCrouching && shouldBeCrouching)
-                    {
-                        _isCrouching = true;
-                        Motor.SetCapsuleDimensions(0.5f, 1f, 0.5f);
-                        MeshRoot.localScale = new Vector3(1f, 0.5f, 1f);
-                    }
+                    // Delegate to Movement System
+                    _movementSystem.AfterUpdate(deltaTime);
                     break;
             }
         }
@@ -492,15 +324,10 @@ namespace Antigravity.Controllers
             ref HitStabilityReport hitStabilityReport
         )
         {
-            if (
-                CurrentCharacterState == CharacterState.Default
-                && Config.AllowWallJump
-                && !Motor.GroundingStatus.IsStableOnGround
-                && !hitStabilityReport.IsStable
-            )
+            if (CurrentCharacterState == CharacterState.Default && !hitStabilityReport.IsStable)
             {
-                _canWallJump = true;
-                _wallJumpNormal = hitNormal;
+                // Delegate wall hit detection to movement module
+                _defaultMovement?.OnWallHit(hitNormal);
             }
         }
 
