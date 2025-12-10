@@ -41,6 +41,7 @@ namespace Antigravity.Movement
         private bool _isSliding;
         private float _slideTimer; // Track duration
         private Vector3 _slideDirection; // Locked at slide start
+        private bool _pendingSlideEntry; // Cached from input before LateUpdate reset
         #endregion
 
         #region Constructor
@@ -157,6 +158,15 @@ namespace Antigravity.Movement
             _jumpHandler.OnWallHit(wallNormal);
         }
 
+        /// <summary>
+        /// Called by PlayerController when crouch is activated.
+        /// Requests slide entry (will be processed in HandleSlide).
+        /// </summary>
+        public void RequestSlide()
+        {
+            _pendingSlideEntry = true;
+        }
+
         public int CurrentDashCharges => _currentDashCharges;
 
         public bool IsSliding => _isSliding;
@@ -210,34 +220,7 @@ namespace Antigravity.Movement
 
             if (_moveInputVector.sqrMagnitude > 0f)
             {
-                // KCC Improvement: Better air velocity cap (prevents bunny-hop exploits)
                 Vector3 addedVelocity = _moveInputVector * Config.AirAccelerationSpeed * deltaTime;
-                Vector3 currentVelocityOnInputsPlane = Vector3.ProjectOnPlane(
-                    currentVelocity,
-                    Motor.CharacterUp
-                );
-
-                // Cap air velocity more precisely
-                if (currentVelocityOnInputsPlane.magnitude < Config.MaxAirMoveSpeed)
-                {
-                    // Clamp total velocity to not exceed max
-                    Vector3 newTotal = Vector3.ClampMagnitude(
-                        currentVelocityOnInputsPlane + addedVelocity,
-                        Config.MaxAirMoveSpeed
-                    );
-                    addedVelocity = newTotal - currentVelocityOnInputsPlane;
-                }
-                else
-                {
-                    // Don't allow acceleration in direction of already-exceeding velocity
-                    if (Vector3.Dot(currentVelocityOnInputsPlane, addedVelocity) > 0f)
-                    {
-                        addedVelocity = Vector3.ProjectOnPlane(
-                            addedVelocity,
-                            currentVelocityOnInputsPlane.normalized
-                        );
-                    }
-                }
 
                 // KCC Improvement: Better air wall prevention
                 if (Motor.GroundingStatus.FoundAnyGround)
@@ -253,6 +236,26 @@ namespace Antigravity.Movement
                         perpenticularObstructionNormal
                     );
                 }
+
+                // Simple horizontal cap (doesn't interfere with vertical/dash impulses)
+                Vector3 horizontalVelocity = Vector3.ProjectOnPlane(
+                    currentVelocity,
+                    Motor.CharacterUp
+                );
+                Vector3 newHorizontalVelocity =
+                    horizontalVelocity + Vector3.ProjectOnPlane(addedVelocity, Motor.CharacterUp);
+
+                // Only limit horizontal speed, not total velocity (preserves dash impulse)
+                if (newHorizontalVelocity.magnitude > Config.MaxAirMoveSpeed)
+                {
+                    newHorizontalVelocity =
+                        newHorizontalVelocity.normalized * Config.MaxAirMoveSpeed;
+                }
+
+                addedVelocity =
+                    newHorizontalVelocity
+                    - horizontalVelocity
+                    + Vector3.Project(addedVelocity, Motor.CharacterUp); // Preserve vertical component
 
                 currentVelocity += addedVelocity;
             }
@@ -323,7 +326,11 @@ namespace Antigravity.Movement
 
         private void HandleCrouch()
         {
-            bool shouldCrouch = _input.CrouchHeld;
+            // Don't manage crouch if we're sliding (slide owns the crouch state)
+            if (_isSliding)
+                return;
+
+            bool shouldCrouch = _input.IsCrouching; // Use IsCrouching (handles toggle/hold)
 
             if (_isCrouching && !shouldCrouch)
             {
@@ -375,10 +382,14 @@ namespace Antigravity.Movement
         private void HandleSlide()
         {
             // Entry: Sprint → Crouch (while moving and grounded)
-            if (_input.CrouchJustActivated && !_isSliding)
+            // Uses _pendingSlideEntry which was cached in UpdatePhysics before LateUpdate reset
+            if (_pendingSlideEntry && !_isSliding)
             {
                 TryEnterSlide(); // Only succeeds if conditions met
             }
+
+            // Always reset the pending flag after check
+            _pendingSlideEntry = false;
 
             // Exit conditions (already in slide)
             if (_isSliding)
@@ -403,14 +414,22 @@ namespace Antigravity.Movement
         {
             // Requirements:
             // 1. Must be sprinting
-            // 2. Must be moving (velocity > threshold)
+            // 2. Must be moving (velocity > low threshold for entry)
             // 3. Must be grounded
             // 4. Not already crouching (prevents Crouch→Sprint inadvertent slide)
+
+            float currentSpeed = Motor.Velocity.magnitude;
+            bool isSprinting = _input.IsSprinting;
+            bool isGrounded = Motor.GroundingStatus.IsStableOnGround;
+            bool notCrouching = !_isCrouching;
+
+            // Use a LOW threshold for entry (1 m/s = barely moving)
+            // We'll use the higher MinSlideSpeedToMaintain for EXIT
             bool canSlide =
-                _input.IsSprinting
-                && Motor.Velocity.magnitude > Config.MinSlideSpeedToMaintain
-                && Motor.GroundingStatus.IsStableOnGround
-                && !_isCrouching; // Critical: Prevents Crouch→Sprint from sliding
+                isSprinting
+                && currentSpeed > 1f // Lower threshold for entry
+                && isGrounded
+                && notCrouching; // Critical: Prevents Crouch→Sprint from sliding
 
             if (canSlide)
             {

@@ -130,7 +130,7 @@ GameObject:
   - component: {fileID: 278712150}
   - component: {fileID: 278712149}
   m_Layer: 0
-  m_Name: Ground
+  m_Name: Managers
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -158,7 +158,7 @@ Transform:
   m_GameObject: {fileID: 278712148}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 9.30509, y: 10.03512, z: -5.76962}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -911,11 +911,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e882ff52e3dc749e698e491ee0d188b1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Antigravity.Controllers.CinemachineInputBridge
-  InputHandler: {fileID: 1774814983}
-  OrbitalFollow: {fileID: 1397244337}
-  LookSensitivity: {x: 1, y: 1}
-  GamepadRateScale: 200
-  InvertY: 0
+  _inputHandler: {fileID: 1774814983}
+  _orbitalFollow: {fileID: 0}
+  _lookSensitivity: {x: 1, y: 1}
+  _gamepadRateScale: 200
+  _invertY: 0
 --- !u!1 &1423604652
 GameObject:
   m_ObjectHideFlags: 0
@@ -964,6 +964,7 @@ GameObject:
   - component: {fileID: 1774814983}
   - component: {fileID: 1774814975}
   - component: {fileID: 1774814980}
+  - component: {fileID: 1774814984}
   m_Layer: 9
   m_Name: Player
   m_TagString: Untagged
@@ -1121,8 +1122,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 12f3039044cd449b9a55dbaaadb29bb7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Game.InputSystem.InputRouter
-  autoEnable: 1
-  debugMissingBindings: 0
+  _autoEnable: 1
+  _debugMissingBindings: 0
 --- !u!114 &1774814983
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1138,11 +1139,35 @@ MonoBehaviour:
   _moveInput: {x: 0, y: 0}
   _lookDelta: {x: 0, y: 0}
   _lookRate: {x: 0, y: 0}
-  _jumpDown: 0
-  _jumpHeld: 0
-  _crouchHeld: 0
-  _rewindHeld: 0
-  _noclipToggleDown: 0
+  _jumpPressed: 0
+  _crouchPressed: 0
+  _rewindPressed: 0
+  _sprintToggledOn: 0
+  _sprintHeld: 0
+--- !u!114 &1774814984
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1774814974}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: edc24f6f438da4c69b22b85875f599d1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Antigravity.Feedback.PlayerFeedback
+  InputHandler: {fileID: 1774814983}
+  Motor: {fileID: 1774814977}
+  TargetCamera: {fileID: 330585545}
+  TargetRenderer: {fileID: 1973004191}
+  NormalColor: {r: 1, g: 1, b: 1, a: 1}
+  SprintColor: {r: 0, g: 1, b: 1, a: 1}
+  DashColor: {r: 1, g: 0, b: 0, a: 1}
+  SlideColor: {r: 1, g: 0.65, b: 0, a: 1}
+  DashVisualDuration: 0.5
+  BaseFOV: 60
+  SprintFOV: 80
+  FOVSharpness: 10
 --- !u!1 &1809917803
 GameObject:
   m_ObjectHideFlags: 0

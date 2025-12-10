@@ -149,6 +149,12 @@ namespace Antigravity.Controllers
                 _movementSystem.OnDashStarted();
             }
 
+            // Handle Slide (Sprint + Crouch = Slide)
+            if (InputHandler.CrouchJustActivated)
+            {
+                _defaultMovement.RequestSlide();
+            }
+
             // Handle Jump Request
             if (InputHandler.JumpDown)
             {

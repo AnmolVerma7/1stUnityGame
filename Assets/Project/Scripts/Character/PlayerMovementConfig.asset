@@ -17,15 +17,27 @@ MonoBehaviour:
   OrientationSharpness: 10
   MaxStableDistanceFromLedge: 5
   MaxStableDenivelationAngle: 180
+  MaxSprintMoveSpeed: 15
+  DashForce: 15
+  DashIntermissionTime: 0.1
+  MaxDashCharges: 3
+  DashReloadTime: 1
+  ToggleSprint: 0
+  ToggleCrouch: 0
+  BaseSlideSpeed: 17
+  SlideGravityInfluence: 5
+  SlideFriction: 0.8
+  MinSlideSpeedToMaintain: 2
+  MaxSlideDuration: 3
   MaxAirMoveSpeed: 10
   AirAccelerationSpeed: 5
-  Drag: 0.1
+  Drag: 0
   AllowJumpingWhenSliding: 0
   AllowDoubleJump: 1
   AllowWallJump: 1
   JumpSpeed: 10
-  JumpPreGroundingGraceTime: 0
-  JumpPostGroundingGraceTime: 0
+  JumpPreGroundingGraceTime: 0.2
+  JumpPostGroundingGraceTime: 5
   NoClipMoveSpeed: 10
   NoClipSharpness: 15
   OrientTowardsGravity: 0
