@@ -28,7 +28,7 @@ namespace Antigravity.Controllers
     /// </summary>
     [RequireComponent(typeof(PlayerInputHandler))]
     [RequireComponent(typeof(KinematicCharacterMotor))]
-    public class PlayerController : MonoBehaviour, ICharacterController
+    public class PlayerController : MonoBehaviour
     {
         #region Inspector Fields
 
@@ -73,7 +73,8 @@ namespace Antigravity.Controllers
 
         private void Awake()
         {
-            Motor.CharacterController = this;
+            // Connect Adapter to Motor
+            Motor.CharacterController = new PlayerKCCAdapter(this);
 
             // Auto-find input handler if not assigned
             if (InputHandler == null)
@@ -226,7 +227,11 @@ namespace Antigravity.Controllers
             // Nothing needed here - activating a new module automatically deactivates the old one
         }
 
-        public void UpdateRotation(ref Quaternion currentRotation, float deltaTime)
+        #endregion
+
+        #region KCC Adapter Handlers (Called via Adapter)
+
+        public void HandleRotation(ref Quaternion currentRotation, float deltaTime)
         {
             if (TimeManager.Instance.IsRewinding)
                 return;
@@ -253,7 +258,7 @@ namespace Antigravity.Controllers
             }
         }
 
-        public void UpdateVelocity(ref Vector3 currentVelocity, float deltaTime)
+        public void HandleVelocity(ref Vector3 currentVelocity, float deltaTime)
         {
             if (TimeManager.Instance.IsRewinding)
                 return;
@@ -262,7 +267,7 @@ namespace Antigravity.Controllers
             _movementSystem.UpdatePhysics(ref currentVelocity, deltaTime);
         }
 
-        public void AfterCharacterUpdate(float deltaTime)
+        public void HandleAfterUpdate(float deltaTime)
         {
             if (TimeManager.Instance.IsRewinding)
                 return;
@@ -271,22 +276,7 @@ namespace Antigravity.Controllers
             _movementSystem.AfterUpdate(deltaTime);
         }
 
-        #endregion
-
-        #region KCC Interface Methods (ICh aracterController)
-
-        public void BeforeCharacterUpdate(float deltaTime) { }
-
-        public bool IsColliderValidForCollisions(Collider coll) => !IgnoredColliders.Contains(coll);
-
-        public void OnGroundHit(
-            Collider hitCollider,
-            Vector3 hitNormal,
-            Vector3 hitPoint,
-            ref HitStabilityReport hitStabilityReport
-        ) { }
-
-        public void OnMovementHit(
+        public void HandleMovementHit(
             Collider hitCollider,
             Vector3 hitNormal,
             Vector3 hitPoint,
@@ -299,19 +289,6 @@ namespace Antigravity.Controllers
                 _defaultMovement?.OnWallHit(hitNormal);
             }
         }
-
-        public void ProcessHitStabilityReport(
-            Collider hitCollider,
-            Vector3 hitNormal,
-            Vector3 hitPoint,
-            Vector3 atCharacterPosition,
-            Quaternion atCharacterRotation,
-            ref HitStabilityReport hitStabilityReport
-        ) { }
-
-        public void PostGroundingUpdate(float deltaTime) { }
-
-        public void OnDiscreteCollisionDetected(Collider hitCollider) { }
 
         #endregion
     }
