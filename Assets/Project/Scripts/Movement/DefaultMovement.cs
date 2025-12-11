@@ -77,6 +77,15 @@ namespace Antigravity.Movement
 
         public override void UpdateRotation(ref Quaternion currentRotation, float deltaTime)
         {
+            // Orient toward wall while mantling (grabbing, hanging, mantling)
+            if (_mantleHandler.IsActive)
+            {
+                // Face into the wall (opposite of wall normal)
+                Vector3 faceDirection = -_mantleHandler.WallNormal;
+                currentRotation = Quaternion.LookRotation(faceDirection, Motor.CharacterUp);
+                return;
+            }
+
             if (_moveInputVector != Vector3.zero && Config.OrientationSharpness > 0f)
             {
                 Vector3 smoothedLookInputDirection = Vector3

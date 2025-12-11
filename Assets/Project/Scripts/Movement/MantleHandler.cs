@@ -13,29 +13,47 @@ namespace Antigravity.Movement
     }
 
     /// <summary>
-    /// Encapsulates ledge grab and mantle logic using manual raycast-based detection.
-    /// Provides parkour-style climbing without trigger colliders.
+    /// Encapsulates ledge grab, hang, shimmy, and mantle logic.
+    /// Uses manual raycast-based detection for parkour-style climbing.
     /// </summary>
     public class MantleHandler
     {
+        // ═══════════════════════════════════════════════════════════════════════
+        // MAGIC NUMBERS - TODO: Move to config
+        // ═══════════════════════════════════════════════════════════════════════
+        private const float SHIMMY_CHECK_VERTICAL = 0.3f; // Multiplier for check height above grab
+        private const float SHIMMY_CHECK_FORWARD = 0.5f; // Distance toward wall for edge check
+        private const float SHIMMY_SPHERE_RADIUS = 0.3f; // OverlapSphere radius for edge detection
+        private const float GRAB_PULLBACK = 0.05f; // Distance to pull back from wall when grabbing
+        private const float MANTLE_FORWARD_OFFSET = 0.15f; // Extra forward distance for mantle target
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // DEPENDENCIES
+        // ═══════════════════════════════════════════════════════════════════════
         private readonly KinematicCharacterMotor _motor;
         private readonly PlayerMovementConfig _config;
         private readonly PlayerInputHandler _input;
 
-        // State
+        // ═══════════════════════════════════════════════════════════════════════
+        // STATE
+        // ═══════════════════════════════════════════════════════════════════════
         private MantleState _state = MantleState.None;
         private Vector3 _grabPosition;
         private Vector3 _mantleTargetPosition;
         private float _stateTimer;
-        private bool _mantleRequested; // Jump input to confirm mantle
+        private bool _mantleRequested;
 
         // Shimmy state
         private Vector3 _ledgeRightDirection;
+        private Vector3 _wallNormal;
         private float _currentShimmyOffset;
 
-        // Properties
+        // ═══════════════════════════════════════════════════════════════════════
+        // PROPERTIES
+        // ═══════════════════════════════════════════════════════════════════════
         public bool IsActive => _state != MantleState.None;
         public MantleState CurrentState => _state;
+        public Vector3 WallNormal => _wallNormal;
 
         public MantleHandler(
             KinematicCharacterMotor motor,
@@ -184,15 +202,17 @@ namespace Antigravity.Movement
 
             // Calculate grab position (hanging below ledge)
             _grabPosition = ledgeHit.point;
-            _grabPosition.y -= _motor.Capsule.height * 0.5f; // Hang at half-height below ledge
-            _grabPosition -= forwardDirection * (_motor.Capsule.radius + 0.05f); // Pull back slightly
+            _grabPosition.y -= _motor.Capsule.height * 0.5f;
+            _grabPosition -= forwardDirection * (_motor.Capsule.radius + GRAB_PULLBACK);
 
             // Calculate mantle target (on top of ledge)
             _mantleTargetPosition = ledgeHit.point;
-            _mantleTargetPosition += forwardDirection * (_motor.Capsule.radius + 0.15f); // Move forward
+            _mantleTargetPosition +=
+                forwardDirection * (_motor.Capsule.radius + MANTLE_FORWARD_OFFSET);
 
             // Calculate ledge right direction for shimmy (perpendicular to wall, horizontal)
-            _ledgeRightDirection = Vector3.Cross(_motor.CharacterUp, wallHit.normal).normalized;
+            _wallNormal = wallHit.normal;
+            _ledgeRightDirection = Vector3.Cross(_motor.CharacterUp, _wallNormal).normalized;
             _currentShimmyOffset = 0f;
 
             // Enter grabbing state
@@ -248,80 +268,58 @@ namespace Antigravity.Movement
         }
 
         /// <summary>
-        /// Checks if the ledge continues in the shimmy direction using multi-point detection.
-        /// Uses 3 check points (front, center, back of capsule) to detect edges and gaps.
+        /// Checks if shimmy is allowed in the given direction.
+        /// Uses OverlapSphere to detect if ledge continues.
         /// </summary>
         private bool CanShimmy(float direction)
         {
-            // Calculate check position in shimmy direction
-            Vector3 baseCheckPos =
-                _grabPosition + (_ledgeRightDirection * direction * _config.ShimmyCheckDistance);
+            // Calculate next position along the ledge
+            float checkDistance = _config.ShimmyCheckDistance;
+            Vector3 nextPos = _grabPosition + (_ledgeRightDirection * direction * checkDistance);
 
-            // Multi-point check (capsule front, center, back) for robust edge detection
-            float capsuleRadius = _motor.Capsule.radius;
-            Vector3[] checkPoints = new Vector3[]
-            {
-                baseCheckPos - _motor.CharacterForward * capsuleRadius, // Front
-                baseCheckPos, // Center
-                baseCheckPos + _motor.CharacterForward * capsuleRadius // Back
-            };
+            // Check position at ledge level, moved forward toward wall
+            Vector3 checkPos =
+                nextPos
+                + _motor.CharacterUp * (_motor.Capsule.height * SHIMMY_CHECK_VERTICAL)
+                - _wallNormal * SHIMMY_CHECK_FORWARD;
 
-            // Check each point for ledge continuation
-            foreach (var point in checkPoints)
-            {
-                RaycastHit hit;
-                bool ledgeExists = Physics.Raycast(
-                    point + _motor.CharacterUp * 0.5f, // Start slightly above
-                    -_motor.CharacterUp, // Cast down
-                    out hit,
-                    1.5f, // Check reasonable distance
-                    _config.MantleLayers,
-                    QueryTriggerInteraction.Ignore
-                );
+            // OverlapSphere to check if collider exists at target position
+            Collider[] hits = Physics.OverlapSphere(
+                checkPos,
+                SHIMMY_SPHERE_RADIUS,
+                _config.MantleLayers,
+                QueryTriggerInteraction.Ignore
+            );
 
-                if (!ledgeExists)
-                {
-                    // Gap detected at this point
-                    return false;
-                }
-
-                // Check if surface is walkable (similar angle check as ledge grab)
-                float surfaceAngle = Vector3.Angle(hit.normal, _motor.CharacterUp);
-                if (surfaceAngle > 45f)
-                {
-                    // Too steep, not safe to shimmy here
-                    return false;
-                }
-            }
-
-            return true; // All check points passed
+            return hits.Length > 0;
         }
 
         private void UpdateHanging(float deltaTime)
         {
-            // Handle shimmy movement (left/right along ledge)
+            // Shimmy: Move left/right while hanging
             float shimmyInput = _input.MoveInput.x;
 
             if (Mathf.Abs(shimmyInput) > _config.ShimmyInputThreshold)
             {
-                float shimmyDirection = Mathf.Sign(shimmyInput);
+                // Calculate shimmy direction - negate for proper left/right mapping
+                float shimmyDirection = -Mathf.Sign(shimmyInput);
 
                 if (CanShimmy(shimmyDirection))
                 {
-                    // Move along ledge
+                    // Calculate movement delta
                     float shimmyDelta = shimmyDirection * _config.ShimmySpeed * deltaTime;
-                    _currentShimmyOffset += shimmyDelta;
 
-                    // Update position using KCC's MoveCharacter (collision-aware)
-                    Vector3 newPosition =
-                        _grabPosition + (_ledgeRightDirection * _currentShimmyOffset);
-                    _motor.MoveCharacter(newPosition);
+                    // Update grab position
+                    _grabPosition += _ledgeRightDirection * shimmyDelta;
 
-                    // Update mantle target to match new position
+                    // Move character using KCC
+                    _motor.MoveCharacter(_grabPosition);
+
+                    // Update mantle target to new position
                     _mantleTargetPosition =
-                        newPosition
-                        + _motor.CharacterUp * (_motor.Capsule.height * 0.5f) // Up to ledge
-                        + _motor.CharacterForward * (_motor.Capsule.radius + 0.15f); // Forward onto platform
+                        _grabPosition
+                        + _motor.CharacterUp * (_motor.Capsule.height * 0.5f)
+                        + _motor.CharacterForward * (_motor.Capsule.radius + MANTLE_FORWARD_OFFSET);
                 }
             }
 
