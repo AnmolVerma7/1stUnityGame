@@ -4,7 +4,7 @@ using UnityEngine.Rendering;
 namespace Antigravity.Utils
 {
     /// <summary>
-    /// Automatically disables the specific DebugManager runtime UI that tends to conflict 
+    /// Automatically disables the specific DebugManager runtime UI that tends to conflict
     /// with controller inputs (specifically L3/R3 on some setups).
     /// </summary>
     public static class DisableDebugUI

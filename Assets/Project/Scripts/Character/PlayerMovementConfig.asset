@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2dc52607062c54e4b83f187061a968f9, type: 3}
   m_Name: PlayerMovementConfig
   m_EditorClassIdentifier: Assembly-CSharp::Antigravity.Controllers.PlayerMovementConfig
-  MaxStableMoveSpeed: 10
+  MaxStableMoveSpeed: 8
   StableMovementSharpness: 15
   OrientationSharpness: 10
   MaxStableDistanceFromLedge: 5
@@ -20,18 +20,18 @@ MonoBehaviour:
   MaxSprintMoveSpeed: 15
   ToggleSprint: 1
   ToggleCrouch: 0
-  ToggleSlide: 1
+  ToggleSlide: 0
   SlideHoldDelay: 0.2
   SlideCooldown: 0.5
-  BaseSlideSpeed: 16
+  BaseSlideSpeed: 12
   SlideGravityInfluence: 5
-  SlideFriction: 0.3
-  MinSlideSpeedToMaintain: 2
-  MaxSlideDuration: 3
+  SlideFriction: 0.8
+  MinSlideSpeedToMaintain: 3
+  MaxSlideDuration: 0
   DashForce: 15
   DashIntermissionTime: 0.1
   MaxDashCharges: 3
-  DashReloadTime: 1
+  DashReloadTime: 2
   MaxAirMoveSpeed: 10
   AirAccelerationSpeed: 5
   Drag: 0
@@ -39,9 +39,49 @@ MonoBehaviour:
   AllowDoubleJump: 1
   AllowWallJump: 1
   JumpSpeed: 10
-  JumpPreGroundingGraceTime: 0.2
+  JumpPreGroundingGraceTime: 0.15
   JumpPostGroundingGraceTime: 5
   NoClipMoveSpeed: 10
   NoClipSharpness: 15
+  MantleLayers:
+    serializedVersion: 2
+    m_Bits: 256
+  MaxGrabDistance: 1
+  MinLedgeHeight: 1
+  MaxLedgeHeight: 4
+  MantleDuration: 0.55
+  MantleCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 0.5
+      value: 0.5
+      inSlope: 1.5
+      outSlope: 1.5
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
   OrientTowardsGravity: 0
   Gravity: {x: 0, y: -25, z: 0}

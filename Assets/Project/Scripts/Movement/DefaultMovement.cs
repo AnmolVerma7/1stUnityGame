@@ -129,8 +129,15 @@ namespace Antigravity.Movement
             // 3. Jump (Delegated to Scalable Handler)
             _jumpHandler.ProcessJump(ref currentVelocity, deltaTime);
 
-            // 4. Mantle grab check (triggered by jump near ledge, AFTER jump processes)
-            if (_jumpHandler.JumpConsumedThisUpdate && _mantleHandler.CanGrab())
+            // 4. Mantle grab check
+            // Can grab either by jumping near ledge OR falling past one
+            bool tryGrabOnJump = _jumpHandler.JumpConsumedThisUpdate && _mantleHandler.CanGrab();
+            bool tryGrabWhileFalling =
+                !Motor.GroundingStatus.IsStableOnGround
+                && currentVelocity.y < 0f // Falling down
+                && _mantleHandler.CanGrab();
+
+            if (tryGrabOnJump || tryGrabWhileFalling)
             {
                 // Debug.Log("🧗 GRABBING LEDGE!");
                 _mantleHandler.TryGrab();
