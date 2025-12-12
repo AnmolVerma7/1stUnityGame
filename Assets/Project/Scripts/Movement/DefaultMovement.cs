@@ -112,62 +112,43 @@ namespace Antigravity.Movement
 
         public override void UpdatePhysics(ref Vector3 currentVelocity, float deltaTime)
         {
-            // 0. Mantle override (takes full control when active)
+            // Mantle takes full control when active
             if (_mantleHandler.IsActive)
             {
-                // Check for mantle confirm while hanging
                 if (_mantleHandler.CurrentState == MantleState.Hanging && _input.JumpDown)
-                {
                     _mantleHandler.RequestMantle();
-                }
 
                 _mantleHandler.OverrideVelocity(ref currentVelocity);
                 return;
             }
 
-            // 1. Movement
+            // Movement
             if (Motor.GroundingStatus.IsStableOnGround)
-            {
                 ApplyGroundMovement(ref currentVelocity, deltaTime);
-            }
             else
-            {
                 ApplyAirMovement(ref currentVelocity, deltaTime);
-            }
 
-            // 3. Jump (Delegated to Scalable Handler)
             _jumpHandler.ProcessJump(ref currentVelocity, deltaTime);
 
-            // 4. Mantle grab check
-            // Can grab either by jumping near ledge OR falling past one
+            // Mantle grab check (on jump or falling near ledge)
             bool tryGrabOnJump = _jumpHandler.JumpConsumedThisUpdate && _mantleHandler.CanGrab();
             bool tryGrabWhileFalling =
                 !Motor.GroundingStatus.IsStableOnGround
-                && currentVelocity.y < 0f // Falling down
+                && currentVelocity.y < 0f
                 && _mantleHandler.CanGrab();
 
             if (tryGrabOnJump || tryGrabWhileFalling)
                 _mantleHandler.TryGrab();
 
-            // 4. Internal forces
             ApplyInternalVelocity(ref currentVelocity);
         }
 
         public override void AfterUpdate(float deltaTime)
         {
-            // 1. Jump cleanup
             _jumpHandler.PostUpdate(deltaTime);
-
-            // 2. Mantle state machine
             _mantleHandler.Update(deltaTime);
-
-            // 3. Slide entry/exit handling
             _slideHandler.HandleSlide();
-
-            // 4. Crouch handling
             HandleCrouch();
-
-            // 5. Dash charge logic
             _dashHandler.UpdateCharges(deltaTime);
         }
 

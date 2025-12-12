@@ -153,12 +153,9 @@ namespace Antigravity.Movement
 
         private bool TryGroundOrCoyoteJump(ref Vector3 currentVelocity)
         {
-            // Logic: Not grounded right now, BUT within grace period
-            // Note: If we are actually grounded, timeSinceLastAbleToJump is 0
             bool canJump = _timeSinceLastAbleToJump <= _config.JumpPostGroundingGraceTime;
 
-            // Extra check: If we've already used air jumps, we probably shouldn't coyote jump
-            // (prevents jumping, falling, then coyote jumping again)
+            // If we've already air jumped, can't coyote jump
             if (_airJumpsUsed > 0)
                 canJump = false;
 
@@ -195,20 +192,15 @@ namespace Antigravity.Movement
 
         private void ExecuteJump(ref Vector3 currentVelocity, Vector3 jumpDirection, JumpType type)
         {
-            // Unground to prevent KCC from snapping back
             _motor.ForceUnground(0.1f);
-
-            // Apply velocity
             currentVelocity +=
                 (jumpDirection * _config.JumpSpeed)
                 - Vector3.Project(currentVelocity, _motor.CharacterUp);
 
-            // 3. State Updates
             _jumpRequested = false;
             _jumpedThisFrame = true;
-            _timeSinceLastAbleToJump = Mathf.Infinity; // Invalidate Coyote Time immediately!
+            _timeSinceLastAbleToJump = Mathf.Infinity;
 
-            // Notify listeners (Audio/VFX/Animation)
             OnJumpPerformed?.Invoke(type);
         }
 
