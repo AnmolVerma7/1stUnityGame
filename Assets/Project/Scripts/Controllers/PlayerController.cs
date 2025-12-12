@@ -166,7 +166,17 @@ namespace Antigravity.Controllers
                     && InputHandler.CrouchHoldDuration >= Config.SlideHoldDelay;
             }
 
-            if (wantSlide)
+            if (_defaultMovement.IsMantling)
+            {
+                // While mantling, crouch means drop
+                if (wantSlide || InputHandler.CrouchJustActivated)
+                {
+                    _defaultMovement.RequestDrop();
+                    // Reset crouch toggle so we don't crouch after dropping
+                    InputHandler.ResetCrouchToggle();
+                }
+            }
+            else if (wantSlide)
             {
                 _defaultMovement.RequestSlide();
             }

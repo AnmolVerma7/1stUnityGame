@@ -216,6 +216,14 @@ namespace Antigravity.Movement
             _mantleHandler.RequestMantle();
         }
 
+        /// <summary>
+        /// Requests drop from ledge.
+        /// </summary>
+        public void RequestDrop()
+        {
+            _mantleHandler.RequestDrop();
+        }
+
         #endregion
 
         #region Movement Helper Methods
@@ -359,6 +367,13 @@ namespace Antigravity.Movement
             if (_slideHandler.IsSliding)
                 return;
 
+            // If mantling, we must be uncrouched (standing capsule)
+            if (_mantleHandler.IsActive)
+            {
+                TryUncrouch();
+                return;
+            }
+
             // Fix: Prevent standard crouch while sprinting (Crouch input is reserved for Slide in this state)
             // If slide fails (cooldown/speed), we should stay sprinting, not dip into a crouch.
             bool shouldCrouch = _input.IsCrouching && !_input.IsSprinting;
@@ -398,6 +413,10 @@ namespace Antigravity.Movement
 
         private void EnterCrouch()
         {
+            // Don't allow crouching while in the air
+            if (!Motor.GroundingStatus.IsStableOnGround)
+                return;
+
             _isCrouching = true;
             Motor.SetCapsuleDimensions(0.5f, 1f, 0.5f);
             _meshRoot.localScale = new Vector3(1f, 0.5f, 1f);

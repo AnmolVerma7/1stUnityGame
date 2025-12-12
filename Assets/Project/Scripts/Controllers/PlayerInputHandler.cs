@@ -111,6 +111,14 @@ namespace Antigravity.Controllers
         public bool IsCrouching =>
             (_config != null && _config.ToggleCrouch) ? _crouchToggledOn : _crouchPressed;
 
+        /// <summary>
+        /// Resets the crouch toggle state. Call this when dropping from ledge.
+        /// </summary>
+        public void ResetCrouchToggle()
+        {
+            _crouchToggledOn = false;
+        }
+
         #endregion
 
         /// <inheritdoc />

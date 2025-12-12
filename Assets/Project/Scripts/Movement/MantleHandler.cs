@@ -26,6 +26,7 @@ namespace Antigravity.Movement
         private const float SHIMMY_SPHERE_RADIUS = 0.3f; // OverlapSphere radius for edge detection
         private const float GRAB_PULLBACK = 0.05f; // Distance to pull back from wall when grabbing
         private const float MANTLE_FORWARD_OFFSET = 0.15f; // Extra forward distance for mantle target
+        private const float DROP_COOLDOWN = 0.5f; // Time before can grab again after dropping
 
         // ═══════════════════════════════════════════════════════════════════════
         // DEPENDENCIES
@@ -42,11 +43,12 @@ namespace Antigravity.Movement
         private Vector3 _mantleTargetPosition;
         private float _stateTimer;
         private bool _mantleRequested;
+        private bool _dropRequested;
+        private float _dropCooldownTimer;
 
         // Shimmy state
         private Vector3 _ledgeRightDirection;
         private Vector3 _wallNormal;
-        private float _currentShimmyOffset;
 
         // ═══════════════════════════════════════════════════════════════════════
         // PROPERTIES
@@ -85,6 +87,14 @@ namespace Antigravity.Movement
         }
 
         /// <summary>
+        /// Called when crouch is pressed - used to drop from ledge while hanging.
+        /// </summary>
+        public void RequestDrop()
+        {
+            _dropRequested = true;
+        }
+
+        /// <summary>
         /// Checks if the player can currently grab a ledge using manual detection.
         /// </summary>
         public bool CanGrab()
@@ -100,6 +110,12 @@ namespace Antigravity.Movement
             if (_motor.GroundingStatus.IsStableOnGround)
             {
                 // Debug.Log("Mantle: Grounded");
+                return false;
+            }
+
+            // Check cooldown
+            if (_dropCooldownTimer > 0f)
+            {
                 return false;
             }
 
@@ -213,7 +229,6 @@ namespace Antigravity.Movement
             // Calculate ledge right direction for shimmy (perpendicular to wall, horizontal)
             _wallNormal = wallHit.normal;
             _ledgeRightDirection = Vector3.Cross(_motor.CharacterUp, _wallNormal).normalized;
-            _currentShimmyOffset = 0f;
 
             // Enter grabbing state
             _state = MantleState.Grabbing;
@@ -233,11 +248,16 @@ namespace Antigravity.Movement
         }
 
         /// <summary>
-        /// Updates mantle state machine.
-        /// Called from AfterUpdate.
+        /// Updates the mantle state machine.
         /// </summary>
         public void Update(float deltaTime)
         {
+            // Cooldown handling - update always
+            if (_dropCooldownTimer > 0f)
+            {
+                _dropCooldownTimer -= deltaTime;
+            }
+
             if (!IsActive)
                 return;
 
@@ -248,11 +268,9 @@ namespace Antigravity.Movement
                 case MantleState.Grabbing:
                     UpdateGrabbing(deltaTime);
                     break;
-
                 case MantleState.Hanging:
                     UpdateHanging(deltaTime);
                     break;
-
                 case MantleState.Mantling:
                     UpdateMantling(deltaTime);
                     break;
@@ -329,6 +347,13 @@ namespace Antigravity.Movement
                 _state = MantleState.Mantling;
                 _stateTimer = 0f;
                 _mantleRequested = false;
+            }
+            // Drop confirmation (crouch while hanging)
+            else if (_dropRequested)
+            {
+                _state = MantleState.None;
+                _dropRequested = false;
+                _dropCooldownTimer = DROP_COOLDOWN;
             }
         }
 
