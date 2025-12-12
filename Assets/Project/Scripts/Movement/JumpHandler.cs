@@ -89,7 +89,11 @@ namespace Antigravity.Movement
         /// <summary>
         /// Main jump logic loop. Evaluates Wall -> Ground -> Air priority.
         /// </summary>
-        public void ProcessJump(ref Vector3 currentVelocity, float deltaTime)
+        public void ProcessJump(
+            ref Vector3 currentVelocity,
+            float deltaTime,
+            Vector3 moveInputVector
+        )
         {
             _jumpedThisFrame = false;
             _timeSinceJumpRequested += deltaTime;
@@ -102,11 +106,11 @@ namespace Antigravity.Movement
                 return;
 
             // Priority 2: Ground/Coyote Jump (Reset air jumps)
-            if (TryGroundOrCoyoteJump(ref currentVelocity))
+            if (TryGroundOrCoyoteJump(ref currentVelocity, moveInputVector))
                 return;
 
             // Priority 3: Air Jump (Double/Triple)
-            if (TryAirJump(ref currentVelocity))
+            if (TryAirJump(ref currentVelocity, moveInputVector))
                 return;
         }
 
@@ -145,13 +149,13 @@ namespace Antigravity.Movement
         {
             if (_canWallJump)
             {
-                ExecuteJump(ref currentVelocity, _wallJumpNormal, JumpType.Wall);
+                ExecuteJump(ref currentVelocity, _wallJumpNormal, JumpType.Wall, Vector3.zero); // Wall jump usually has its own logic, but could add input if desired
                 return true;
             }
             return false;
         }
 
-        private bool TryGroundOrCoyoteJump(ref Vector3 currentVelocity)
+        private bool TryGroundOrCoyoteJump(ref Vector3 currentVelocity, Vector3 moveInputVector)
         {
             bool canJump = _timeSinceLastAbleToJump <= _config.JumpPostGroundingGraceTime;
 
@@ -173,29 +177,48 @@ namespace Antigravity.Movement
                 }
 
                 JumpType type = (_timeSinceLastAbleToJump > 0) ? JumpType.Coyote : JumpType.Ground;
-                ExecuteJump(ref currentVelocity, jumpDir, type);
+                ExecuteJump(ref currentVelocity, jumpDir, type, moveInputVector);
                 return true;
             }
             return false;
         }
 
-        private bool TryAirJump(ref Vector3 currentVelocity)
+        private bool TryAirJump(ref Vector3 currentVelocity, Vector3 moveInputVector)
         {
             if (_airJumpsUsed < _maxAirJumps)
             {
-                ExecuteJump(ref currentVelocity, _motor.CharacterUp, JumpType.Air);
+                ExecuteJump(ref currentVelocity, _motor.CharacterUp, JumpType.Air, moveInputVector);
                 _airJumpsUsed++;
                 return true;
             }
             return false;
         }
 
-        private void ExecuteJump(ref Vector3 currentVelocity, Vector3 jumpDirection, JumpType type)
+        private void ExecuteJump(
+            ref Vector3 currentVelocity,
+            Vector3 jumpDirection,
+            JumpType type,
+            Vector3 moveInputVector
+        )
         {
             _motor.ForceUnground(0.1f);
+
+            // Choose speed values based on jump type
+            float upSpeed = (type == JumpType.Air) ? _config.DoubleJumpSpeed : _config.JumpSpeed;
+            float forwardSpeed =
+                (type == JumpType.Air)
+                    ? _config.DoubleJumpScalableForwardSpeed
+                    : _config.JumpScalableForwardSpeed;
+
+            // Vertical impulse
             currentVelocity +=
-                (jumpDirection * _config.JumpSpeed)
-                - Vector3.Project(currentVelocity, _motor.CharacterUp);
+                (jumpDirection * upSpeed) - Vector3.Project(currentVelocity, _motor.CharacterUp);
+
+            // Scalable Forward Speed (Titanfall/Spiderman momentum)
+            if (moveInputVector.sqrMagnitude > 0f)
+            {
+                currentVelocity += moveInputVector * forwardSpeed;
+            }
 
             _jumpRequested = false;
             _jumpedThisFrame = true;

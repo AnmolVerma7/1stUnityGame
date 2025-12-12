@@ -128,7 +128,7 @@ namespace Antigravity.Movement
             else
                 ApplyAirMovement(ref currentVelocity, deltaTime);
 
-            _jumpHandler.ProcessJump(ref currentVelocity, deltaTime);
+            _jumpHandler.ProcessJump(ref currentVelocity, deltaTime, _moveInputVector);
 
             // Mantle grab check (on jump or falling near ledge)
             bool tryGrabOnJump = _jumpHandler.JumpConsumedThisUpdate && _mantleHandler.CanGrab();

@@ -140,6 +140,15 @@ namespace Antigravity.Controllers
         [Tooltip("Vertical speed applied on jump.")]
         public float JumpSpeed = 10f;
 
+        [Tooltip("Forward speed added in direction of input when jumping.")]
+        public float JumpScalableForwardSpeed = 10f;
+
+        [Tooltip("Vertical speed applied on double jump.")]
+        public float DoubleJumpSpeed = 10f;
+
+        [Tooltip("Forward speed added in direction of input when double jumping.")]
+        public float DoubleJumpScalableForwardSpeed = 10f;
+
         [Tooltip("Jump Buffer: How long (seconds) a jump input is remembered before landing.")]
         public float JumpPreGroundingGraceTime = 0.15f;
 
