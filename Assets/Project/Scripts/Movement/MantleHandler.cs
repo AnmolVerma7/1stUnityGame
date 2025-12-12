@@ -314,30 +314,51 @@ namespace Antigravity.Movement
 
         private void UpdateHanging(float deltaTime)
         {
-            // Shimmy: Move left/right while hanging
-            float shimmyInput = _input.MoveInput.x;
+            // Shimmy: Use camera-relative 2D input projected onto ledge direction
+            Vector2 moveInput = _input.MoveInput;
 
-            if (Mathf.Abs(shimmyInput) > _config.ShimmyInputThreshold)
+            if (moveInput.magnitude > _config.ShimmyInputThreshold)
             {
-                // Calculate shimmy direction - negate for proper left/right mapping
-                float shimmyDirection = -Mathf.Sign(shimmyInput);
+                // Get camera orientation (horizontal plane only)
+                Transform cameraTransform = Camera.main.transform;
+                Vector3 cameraForward = cameraTransform.forward;
+                Vector3 cameraRight = cameraTransform.right;
 
-                if (CanShimmy(shimmyDirection))
+                // Flatten to horizontal plane
+                cameraForward.y = 0f;
+                cameraRight.y = 0f;
+                cameraForward.Normalize();
+                cameraRight.Normalize();
+
+                // Project 2D input onto 3D world space relative to CAMERA orientation
+                Vector3 desiredMove = cameraRight * moveInput.x + cameraForward * moveInput.y;
+
+                // Project onto ledge tangent to get shimmy component
+                float shimmyAmount = Vector3.Dot(desiredMove, _ledgeRightDirection);
+
+                if (Mathf.Abs(shimmyAmount) > 0.01f)
                 {
-                    // Calculate movement delta
-                    float shimmyDelta = shimmyDirection * _config.ShimmySpeed * deltaTime;
+                    // Check if we can shimmy in this direction
+                    float shimmyDirection = Mathf.Sign(shimmyAmount);
 
-                    // Update grab position
-                    _grabPosition += _ledgeRightDirection * shimmyDelta;
+                    if (CanShimmy(shimmyDirection))
+                    {
+                        // Calculate movement delta (use full projected amount for natural feel)
+                        float shimmyDelta = shimmyAmount * _config.ShimmySpeed * deltaTime;
 
-                    // Move character using KCC
-                    _motor.MoveCharacter(_grabPosition);
+                        // Update grab position
+                        _grabPosition += _ledgeRightDirection * shimmyDelta;
 
-                    // Update mantle target to new position
-                    _mantleTargetPosition =
-                        _grabPosition
-                        + _motor.CharacterUp * (_motor.Capsule.height * 0.5f)
-                        + _motor.CharacterForward * (_motor.Capsule.radius + MANTLE_FORWARD_OFFSET);
+                        // Move character using KCC
+                        _motor.MoveCharacter(_grabPosition);
+
+                        // Update mantle target to new position
+                        _mantleTargetPosition =
+                            _grabPosition
+                            + _motor.CharacterUp * (_motor.Capsule.height * 0.5f)
+                            + _motor.CharacterForward
+                                * (_motor.Capsule.radius + MANTLE_FORWARD_OFFSET);
+                    }
                 }
             }
 
