@@ -384,7 +384,6 @@ namespace Antigravity.Movement
             }
             else
             {
-                _meshRoot.localScale = new Vector3(1f, 1f, 1f);
                 _isCrouching = false;
             }
         }
@@ -397,7 +396,7 @@ namespace Antigravity.Movement
 
             _isCrouching = true;
             Motor.SetCapsuleDimensions(0.5f, 1f, 0.5f);
-            _meshRoot.localScale = new Vector3(1f, 0.5f, 1f);
+            // Visual handled by animation
         }
 
         #endregion

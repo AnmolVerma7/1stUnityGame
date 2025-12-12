@@ -42,6 +42,9 @@ namespace Antigravity.Controllers
         [Tooltip("Configuration asset for tuning values.")]
         public PlayerMovementConfig Config;
 
+        [Tooltip("Animator bridge for character animations.")]
+        public Antigravity.Character.PlayerAnimator PlayerAnimator;
+
         [Header("State Machine (Debug - Observation Only)")]
         [SerializeField]
         private string _currentStateDebug;
@@ -134,6 +137,10 @@ namespace Antigravity.Controllers
             _defaultMovement.SetMoveInput(_moveInputVector);
             _noClipMovement.SetMoveInput(_moveInputVector);
 
+            // Update animator with input magnitude (for analog blending)
+            if (PlayerAnimator != null)
+                PlayerAnimator.SetInputMagnitude(InputHandler.MoveInput.magnitude);
+
             // Handle Sprint Event (Reliable Trigger)
             if (InputHandler.SprintJustActivated)
             {
@@ -158,7 +165,6 @@ namespace Antigravity.Controllers
                 if (wantSlide || InputHandler.CrouchJustActivated)
                 {
                     _defaultMovement.RequestDrop();
-                    // Reset crouch toggle so we don't crouch after dropping
                     InputHandler.ResetCrouchToggle();
                 }
             }
@@ -167,13 +173,24 @@ namespace Antigravity.Controllers
                 _defaultMovement.RequestSlide();
             }
 
+            // Update slide animation state
+            if (PlayerAnimator != null)
+                PlayerAnimator.SetSliding(_defaultMovement.IsSliding);
+
             // Jump (or mantle confirm if hanging)
             if (InputHandler.JumpDown)
             {
                 if (_defaultMovement.IsMantling)
+                {
                     _defaultMovement.RequestMantleConfirm();
+                }
                 else
+                {
                     _defaultMovement.RequestJump();
+                    // Trigger jump animation
+                    if (PlayerAnimator != null)
+                        PlayerAnimator.TriggerJump();
+                }
             }
 
             _stateMachine.CurrentState.UpdateStates();
